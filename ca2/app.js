@@ -20,7 +20,6 @@ db.connect((err) => {
     }
     console.log('Connected to database');
 });
-
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static('public'));
 
@@ -50,7 +49,7 @@ const checkAuthenticated = (req, res, next) => {
 
 
 const checkAdmin = (req, res, next) => {
-    if (req.session.user.role === 'admin') {
+    if (req.session.user && req.session.user.role === 'admin') {
         return next();
     } else {
         req.flash('error', 'Access denied');
@@ -107,31 +106,77 @@ app.get('/login', (req, res) => {
 app.post('/login', (req, res) => {
     const { email, password } = req.body;
 
-    // Validate email and password
     if (!email || !password) {
         req.flash('error', 'All fields are required.');
         return res.redirect('/login');
     }
 
-    const sql = 'SELECT * FROM users WHERE email = ? AND password = SHA1(?)';
-    db.query(sql, [email, password], (err, results) => {
+    const checkUserSql = 'SELECT * FROM users WHERE email = ?';
+    db.query(checkUserSql, [email], (err, results) => {
         if (err) {
             throw err;
         }
 
         if (results.length > 0) {
-            // Successful login
-            req.session.user = results[0]; // store user in session
-            req.flash('success', 'Login successful!');
-            res.redirect('/dashboard');
+            const user = results[0];
+
+            if (user.status === 'locked') {
+                req.flash('error', 'Your account is locked due to multiple failed attempts.');
+                return res.redirect('/login');
+            }
+
+            const sql = 'SELECT * FROM users WHERE email = ? AND password = SHA1(?)';
+            db.query(sql, [email, password], (err, loginResults) => {
+                if (err) {
+                    throw err;
+                }
+
+                if (loginResults.length > 0) {
+                    const resetSql = 'UPDATE users SET login_attempts = 0 WHERE email = ?';
+                    db.query(resetSql, [email], (err, resetResult) => {
+                        if (err) {
+                            throw err;
+                        }
+                        req.session.user = loginResults[0]; 
+                        req.flash('success', 'Login successful!');
+                        
+                        // Smart Redirect: Send admin to admin page, user to dashboard
+                        if (loginResults[0].role === 'admin') {
+                            res.redirect('/admin');
+                        } else {
+                            res.redirect('/dashboard');
+                        }
+                    });
+                } else {
+                    const newAttempts = user.login_attempts + 1;
+
+                    if (newAttempts >= 3) {
+                        const lockSql = "UPDATE users SET login_attempts = ?, status = 'locked' WHERE email = ?";
+                        db.query(lockSql, [newAttempts, email], (err, lockResult) => {
+                            if (err) {
+                                throw err;
+                            }
+                            req.flash('error', 'Account locked. 3 failed login attempts exceeded.');
+                            res.redirect('/login');
+                        });
+                    } else {
+                        const updateAttemptsSql = 'UPDATE users SET login_attempts = ? WHERE email = ?';
+                        db.query(updateAttemptsSql, [newAttempts, email], (err, updateResult) => {
+                            if (err) {
+                                throw err;
+                            }
+                            req.flash('error', 'Invalid email or password.');
+                            res.redirect('/login');
+                        });
+                    }
+                }
+            });
         } else {
-            // Invalid credentials
             req.flash('error', 'Invalid email or password.');
             res.redirect('/login');
         }
     });
 });
-
 app.get('/dashboard', checkAuthenticated, (req, res) => {
     res.render('dashboard', { user: req.session.user });
 });
