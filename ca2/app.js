@@ -5,6 +5,7 @@ const flash = require('connect-flash');
 
 const app = express();
 
+
 // Database connection
 const db = mysql.createConnection({
     host: 'c237-meilan-mysql.mysql.database.azure.com',
