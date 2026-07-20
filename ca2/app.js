@@ -228,8 +228,12 @@ app.post('/workouts/delete/:id', checkAuthenticated, (req, res) => {
     db.query('DELETE FROM workouts WHERE workoutId = ? AND userId = ?', [workoutId, userId], (err, result) => {
         if (err) {
             req.flash('error', 'Database error deleting workout.');
-            return res
-
+            return res.redirect('/workouts');
+        }
+        req.flash('success', 'Workout deleted successfully.');
+        res.redirect('/workouts');
+    });
+});
 // Start server
 app.listen(3000, () => {
     console.log('Server started on port http://localhost:3000');
