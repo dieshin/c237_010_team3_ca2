@@ -3,7 +3,7 @@ const mysql = require('mysql2');
 const session = require('express-session');
 const flash = require('connect-flash');
 const app = express();
-req.session.user = results[0];
+
 
 const db = mysql.createConnection({
     host: 'c237-meilan-mysql.mysql.database.azure.com',
@@ -182,7 +182,28 @@ app.get('/dashboard', checkAuthenticated, (req, res) => {
 });
 
 app.get('/admin', checkAuthenticated, checkAdmin, (req, res) => {
-    res.render('admin', { user: req.session.user });
+    const sql = "SELECT * FROM users WHERE status = 'locked'";
+    db.query(sql, (err, results) => {
+        if (err) {
+            throw err;
+        }
+        res.render('admin', { 
+            user: req.session.user, 
+            lockedUsers: results,
+            messages: req.flash('success') 
+        });
+    });
+});
+app.post('/admin/unlock/:id', checkAuthenticated, checkAdmin, (req, res) => {
+    const userId = req.params.id;
+    const sql = "UPDATE users SET login_attempts = 0, status = 'active' WHERE id = ?";
+    db.query(sql, [userId], (err, result) => {
+        if (err) {
+            throw err;
+        }
+        req.flash('success', 'Account has been successfully unlocked.');
+        res.redirect('/admin');
+    });
 });
 // Display the logged-in user's workouts
 app.get('/workouts', checkAuthenticated, (req, res) => {

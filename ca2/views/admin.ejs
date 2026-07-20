@@ -9,6 +9,46 @@
         <h1 class="text-danger">Admin Control Portal</h1>
         <a href="/logout" class="btn btn-danger">Logout</a>
     </div>
-    <p class="mt-3">Welcome Admin, <%= user.username %>. This is only accessible to admin</p>
+    <p class="mt-3">Welcome admin, <%= user.username %>.</p>
+
+    <% if (messages && messages.length > 0) { %>
+        <div class="alert alert-success mt-3">
+            <p class="mb-0"><%= messages %></p>
+        </div>
+    <% } %>
+
+    <h2 class="mt-5"locked user accounts</h2>
+    <div class="card p-3 mt-3 shadow-sm">
+        <% if (lockedUsers.length > 0) { %>
+            <table class="table table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Failed Attempts</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% lockedUsers.forEach(function(lockedUser) { %>
+                        <tr>
+                            <td><%= lockedUser.id %></td>
+                            <td><%= lockedUser.username %></td>
+                            <td><%= lockedUser.email %></td>
+                            <td><span class="badge bg-danger"><%= lockedUser.login_attempts %></span></td>
+                            <td>
+                                <form action="/admin/unlock/<%= lockedUser.id %>" method="POST" class="d-inline">
+                                    <button type="submit" class="btn btn-success btn-sm">Unlock Account</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+        <% } else { %>
+            <p class="text-muted text-center my-3">No user accounts are currently locked.</p>
+        <% } %>
+    </div>
 </body>
 </html>
