@@ -3,7 +3,7 @@ const mysql = require('mysql2');
 const session = require('express-session');
 const flash = require('connect-flash');
 const app = express();
-
+req.session.user = results[0];
 // Database connection
 const db = mysql.createConnection({
     host: 'c237-meilan-mysql.mysql.database.azure.com',
@@ -183,6 +183,33 @@ app.get('/dashboard', checkAuthenticated, (req, res) => {
 
 app.get('/admin', checkAuthenticated, checkAdmin, (req, res) => {
     res.render('admin', { user: req.session.user });
+});
+// Display the logged-in user's workouts
+app.get('/workouts', checkAuthenticated, (req, res) => {
+
+    const userId = req.session.user.userId;
+
+    const sql = `
+        SELECT *
+        FROM workouts
+        WHERE userId = ?
+        ORDER BY workoutDate DESC
+    `;
+
+    db.query(sql, [userId], (err, results) => {
+
+        if (err) {
+            console.error('Error retrieving workouts:', err);
+            return res.send('Error retrieving workouts');
+        }
+
+        res.render('workouts', {
+            workouts: results,
+            user: req.session.user
+        });
+
+    });
+
 });
 
 app.get('/logout', (req, res) => {
