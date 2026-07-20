@@ -166,7 +166,7 @@ app.post('/admin/unlock/:id', checkAuthenticated, checkAdmin, (req, res) => {
 });
 
 // Workouts
-app.get('/workouts', checkAuthenticated, (req, res) => {
+app.get('/workout', checkAuthenticated, (req, res) => {
     const userId = req.session.user.id;
     const search = req.query.search || '';
     const muscleGroup = req.query.muscleGroup || '';
@@ -195,19 +195,19 @@ app.get('/workouts', checkAuthenticated, (req, res) => {
         });
     });
 });
-app.get('/workouts/add', checkAuthenticated, (req, res) => {
+app.get('/workout/add', checkAuthenticated, (req, res) => {
     res.render('addWorkout', {
         user: req.session.user,
         errors: req.flash('error'),
         success: req.flash('success')
     });
 });
-app.post('/workouts/add', checkAuthenticated, (req, res) => {
+app.post('/workout/add', checkAuthenticated, (req, res) => {
     const { title, muscleGroup, exerciseName, sets, reps, weight, restTime, notes } = req.body;
     const userId = req.session.user.id;
     if (!title || !muscleGroup || !exerciseName || !sets || !reps || !weight || !restTime) {
         req.flash('error', 'All fields are required.');
-        return res.redirect('/workouts/add');
+        return res.redirect('/workout/add');
     }
     const sql = `
         INSERT INTO workouts (userId, title, muscleGroup, exerciseName, sets, reps, weight, restTime, workoutDate, notes)
@@ -216,22 +216,22 @@ app.post('/workouts/add', checkAuthenticated, (req, res) => {
     db.query(sql, [userId, title, muscleGroup, exerciseName, sets, reps, weight, restTime, notes], (err) => {
         if (err) {
             req.flash('error', 'Database error saving workout.');
-            return res.redirect('/workouts/add');
+            return res.redirect('/workout/add');
         }
         req.flash('success', 'Workout successfully tracked!');
-        res.redirect('/workouts');
+        res.redirect('/workout');
     });
 });
-app.post('/workouts/delete/:id', checkAuthenticated, (req, res) => {
+app.post('/workout/delete/:id', checkAuthenticated, (req, res) => {
     const workoutId = req.params.id;
     const userId = req.session.user.id;
     db.query('DELETE FROM workouts WHERE workoutId = ? AND userId = ?', [workoutId, userId], (err, result) => {
         if (err) {
             req.flash('error', 'Database error deleting workout.');
-            return res.redirect('/workouts');
+            return res.redirect('/workout');
         }
         req.flash('success', 'Workout deleted successfully.');
-        res.redirect('/workouts');
+        res.redirect('/workout');
     });
 });
 // Start server
