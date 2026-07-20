@@ -4,7 +4,7 @@ const session = require('express-session');
 const flash = require('connect-flash');
 const app = express();
 req.session.user = results[0];
-// Database connection
+
 const db = mysql.createConnection({
     host: 'c237-meilan-mysql.mysql.database.azure.com',
     user: 'c237_010',
@@ -232,7 +232,7 @@ app.post('/workouts/add', checkAuthenticated, (req, res) => {
         return res.redirect('/workouts/add');
     }
 
-    const sql = `INSERT INTO workouts (user_id, title, muscle_group, exercise_name, sets, reps, weight, rest_time, date_logged) 
+    const sql = `INSERT INTO workouts (userId, title, muscleGroup, exerciseName, sets, reps, weight, restTime, workoutDate) 
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`;
     
     db.query(sql, [userId, title, muscleGroup, exerciseName, sets, reps, weight, restTime], (err, result) => {
