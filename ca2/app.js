@@ -212,6 +212,42 @@ app.get('/workouts', checkAuthenticated, (req, res) => {
 
 });
 
+
+
+app.get('/workouts/add', checkAuthenticated, (req, res) => {
+    res.render('addWorkout', { 
+        user: req.session.user, 
+        errors: req.flash('error'),
+        success: req.flash('success')
+    });
+});
+
+app.post('/workouts/add', checkAuthenticated, (req, res) => {
+    const { title, muscleGroup, exerciseName, sets, reps, weight, restTime } = req.body;
+    const userId = req.session.user.id; 
+
+    // Validation: Ensure required tracking fields, including rest time, are filled
+    if (!title || !muscleGroup || !exerciseName || !sets || !reps || !weight || !restTime) {
+        req.flash('error', 'All fields are required to log your workout.');
+        return res.redirect('/workouts/add');
+    }
+
+    const sql = `INSERT INTO workouts (user_id, title, muscle_group, exercise_name, sets, reps, weight, rest_time, date_logged) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`;
+    
+    db.query(sql, [userId, title, muscleGroup, exerciseName, sets, reps, weight, restTime], (err, result) => {
+        if (err) {
+            console.error(err);
+            req.flash('error', 'Database error occurred while saving your workout.');
+            return res.redirect('/workouts/add');
+        }
+        
+        console.log('Workout Logged Successfully:', result);
+        req.flash('success', 'Workout successfully tracked!');
+        res.redirect('/workouts/add');
+    });
+});
+
 app.get('/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/');
