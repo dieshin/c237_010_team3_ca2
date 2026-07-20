@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>My Workouts</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet">
+</head>
+
+<body class="bg-light">
+
+    <nav class="navbar navbar-expand-sm bg-dark navbar-dark">
+
+        <div class="container-fluid">
+
+            <a class="navbar-brand" href="/">
+                Gym Workout Tracker
+            </a>
+
+            <div class="navbar-nav">
+
+                <a class="nav-link" href="/workouts">
+                    My Workouts
+                </a>
+
+                <a class="nav-link" href="/logout">
+                    Logout
+                </a>
+
+            </div>
+
+        </div>
+
+    </nav>
+
+
+    <div class="container mt-5">
+
+        <h2 class="mb-4">
+            My Workouts
+        </h2>
+
+
+        <% if (workouts.length === 0) { %>
+
+            <div class="alert alert-info">
+                You have not recorded any workouts yet.
+            </div>
+
+        <% } else { %>
+
+            <div class="row">
+
+                <% workouts.forEach(workout => { %>
+
+                    <div class="col-md-4 mb-4">
+
+                        <div class="card shadow">
+
+                            <div class="card-body">
+
+                                <h5 class="card-title">
+                                    <%= workout.exerciseName %>
+                                </h5>
+
+                                <p class="card-text">
+
+                                    <strong>Muscle Group:</strong>
+                                    <%= workout.muscleGroup %>
+
+                                    <br>
+
+                                    <strong>Sets:</strong>
+                                    <%= workout.sets %>
+
+                                    <br>
+
+                                    <strong>Reps:</strong>
+                                    <%= workout.reps %>
+
+                                    <br>
+
+                                    <strong>Weight:</strong>
+                                    <%= workout.weight %> kg
+
+                                    <br>
+
+                                    <strong>Date:</strong>
+                                    <%= new Date(workout.workoutDate).toLocaleDateString('en-GB') %>
+
+                                </p>
+
+                                <% if (workout.notes) { %>
+
+                                    <p>
+                                        <strong>Notes:</strong>
+                                        <%= workout.notes %>
+                                    </p>
+
+                                <% } %>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                <% }) %>
+
+            </div>
+
+        <% } %>
+
+    </div>
+
+</body>
+
+</html>
