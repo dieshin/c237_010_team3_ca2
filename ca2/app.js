@@ -222,7 +222,7 @@ app.post('/workout/add', checkAuthenticated, (req, res) => {
         res.redirect('/workout');
     });
 });
-//test
+
 app.post('/workout/delete/:id', checkAuthenticated, (req, res) => {
     const workoutId = req.params.id;
     const userId = req.session.user.id;
