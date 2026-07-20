@@ -186,7 +186,7 @@ app.get('/workout', checkAuthenticated, (req, res) => {
     else sql += ' ORDER BY workoutDate DESC';
     db.query(sql, values, (err, results) => {
         if (err) return res.send('Error retrieving workouts');
-        res.render('workouts', {
+        res.render('workout', {
             workouts: results,
             user: req.session.user,
             search,
@@ -235,7 +235,13 @@ app.post('/workout/delete/:id', checkAuthenticated, (req, res) => {
         res.redirect('/workout');
     });
 });
-// Start server
+app.get('/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) return res.send('Error logging out');
+        res.redirect('/login');
+    });
+});
+// Start servewhatr
 app.listen(3000, () => {
     console.log('Server started on port http://localhost:3000');
 });
