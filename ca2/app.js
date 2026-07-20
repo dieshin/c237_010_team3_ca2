@@ -2,11 +2,6 @@ const express = require('express');
 const mysql = require('mysql2');
 const session = require('express-session');
 const flash = require('connect-flash');
-<<<<<<< HEAD
-const app = express();
-
-=======
->>>>>>> b8bf538563b3842677ae4d1672a45db6ed2a9deb
 
 const app = express();
 
@@ -242,32 +237,8 @@ app.get('/dashboard', checkAuthenticated, (req, res) => {
 
 // Admin dashboard
 app.get('/admin', checkAuthenticated, checkAdmin, (req, res) => {
-<<<<<<< HEAD
-    const sql = "SELECT * FROM users WHERE status = 'locked'";
-    db.query(sql, (err, results) => {
-        if (err) {
-            throw err;
-        }
-        res.render('admin', { 
-            user: req.session.user, 
-            lockedUsers: results,
-            messages: req.flash('success') 
-        });
-    });
-});
-app.post('/admin/unlock/:id', checkAuthenticated, checkAdmin, (req, res) => {
-    const userId = req.params.id;
-    const sql = "UPDATE users SET login_attempts = 0, status = 'active' WHERE id = ?";
-    db.query(sql, [userId], (err, result) => {
-        if (err) {
-            throw err;
-        }
-        req.flash('success', 'Account has been successfully unlocked.');
-        res.redirect('/admin');
-=======
     res.render('admin', {
         user: req.session.user
->>>>>>> b8bf538563b3842677ae4d1672a45db6ed2a9deb
     });
 });
 
