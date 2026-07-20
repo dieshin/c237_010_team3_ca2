@@ -11,7 +11,7 @@
     </div>
     <p class="mt-3">Welcome admin, <%= user.username %>.</p>
 
-    <% if (messages && messages.length > 0) { %>
+    <% if (typeof messages !== 'undefined' && messages && messages.length > 0) { %>
         <div class="alert alert-success mt-3">
             <p class="mb-0"><%= messages %></p>
         </div>
@@ -19,7 +19,7 @@
 
     <h2 class="mt-5">Locked User Accounts</h2>
     <div class="card p-3 mt-3 shadow-sm">
-        <% if (lockedUsers.length > 0) { %>
+        <% if (typeof lockedUsers !== 'undefined' && lockedUsers.length > 0) { %>
             <table class="table table-striped align-middle">
                 <thead>
                     <tr>
