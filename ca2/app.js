@@ -2,13 +2,9 @@ const express = require('express');
 const mysql = require('mysql2');
 const session = require('express-session');
 const flash = require('connect-flash');
-<<<<<<< HEAD
-const app = express();
-
-=======
->>>>>>> b8bf538563b3842677ae4d1672a45db6ed2a9deb
 
 const app = express();
+
 
 // Database connection
 const db = mysql.createConnection({
