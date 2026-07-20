@@ -16,6 +16,7 @@ CREATE TABLE `users` (
 CREATE TABLE `workouts` (
     `workoutId` INT AUTO_INCREMENT PRIMARY KEY,
     `userId` INT NOT NULL,
+    `title` VARCHAR(100) NOT NULL,   -- <--- added here
     `exerciseName` VARCHAR(100) NOT NULL,
     `muscleGroup` VARCHAR(50) NOT NULL,
     `sets` INT NOT NULL,
@@ -31,3 +32,4 @@ CREATE TABLE `workouts` (
         ON DELETE CASCADE
         ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
