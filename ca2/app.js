@@ -425,6 +425,31 @@ app.post('/edit/:id', checkAuthenticated, checkAdmin, (req, res) => {
     );
 });
 
+// Delete a specific workout record
+app.post('/workouts/delete/:id', checkAuthenticated, (req, res) => {
+    const workoutId = req.params.id;
+    const userId = req.session.user.id; // Security check: ensures users only delete their own data
+
+    const sql = 'DELETE FROM workouts WHERE id = ? AND userId = ?';
+
+    db.query(sql, [workoutId, userId], (err, result) => {
+        if (err) {
+            console.error('Error deleting workout:', err);
+            req.flash('error', 'Database error occurred while trying to delete the workout.');
+            return res.redirect('/workouts');
+        }
+
+        // If no rows were affected, it means the workout didn't exist or didn't belong to the user
+        if (result.affectedRows === 0) {
+            req.flash('error', 'Workout not found or unauthorized action.');
+        } else {
+            req.flash('success', 'Workout successfully removed from your history.');
+        }
+        
+        res.redirect('/workouts');
+    });
+});
+
 // Start server
 app.listen(3000, () => {
     console.log('Server started on port http://localhost:3000');
