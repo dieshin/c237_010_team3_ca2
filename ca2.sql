@@ -13,18 +13,19 @@ CREATE TABLE `users` (
 
 
 -- Create the workouts table
-CREATE TABLE `workouts` (
-    `workoutId` INT AUTO_INCREMENT PRIMARY KEY,
-    `userId` INT NOT NULL,
-    `title` VARCHAR(100) NOT NULL,   
-    `exerciseName` VARCHAR(100) NOT NULL,
-    `muscleGroup` VARCHAR(50) NOT NULL,
-    `sets` INT NOT NULL,
-    `reps` INT NOT NULL,
-    `weight` DECIMAL(6,2) NOT NULL,
-    `restTime` INT NOT NULL DEFAULT 60,
-    `workoutDate` DATE NOT NULL,
-    `notes` TEXT,
+CREATE TABLE workouts (
+    workoutId INT AUTO_INCREMENT PRIMARY KEY,
+    userId INT NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    exerciseName VARCHAR(100) NOT NULL,
+    muscleGroup VARCHAR(50) NOT NULL,
+    sets INT NOT NULL,
+    reps INT NOT NULL,
+    weight DECIMAL(6,2) NOT NULL,
+    restTime INT NOT NULL,
+    workoutDate DATE NOT NULL,
+    notes TEXT
+);
 
     CONSTRAINT `fk_workout_user`
         FOREIGN KEY (`userId`)
