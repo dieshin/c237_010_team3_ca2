@@ -15,6 +15,11 @@
             <a class="nav-link" href="/dashboard">Dashboard</a>
             <a class="nav-link" href="/workout">My Workouts</a>
             <a class="nav-link" href="/edit">Edit Profile</a>
+            <a href="/workout/edit/<%= workout.workoutId %>" class="btn btn-primary">Edit</a>
+
+<form action="/workout/delete/<%= workout.workoutId %>" method="POST">
+    <button type="submit" class="btn btn-danger">Delete</button>
+</form>
             <a class="nav-link" href="/logout">Logout</a>
         </div>
     </div>
@@ -24,7 +29,7 @@
 
     <h2 class="mb-4">Edit Workout</h2>
 
-    <% if (errors && errors.length > 0) { %>
+    <% if (typeof errors !== 'undefined' && errors.length > 0) { %>
         <div class="alert alert-danger">
             <% errors.forEach(function(msg) { %>
                 <p class="mb-0"><%= msg %></p>

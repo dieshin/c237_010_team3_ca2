@@ -1,18 +1,18 @@
--- Create the users table
-CREATE TABLE `users` (
-  `id` INT(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-  `username` VARCHAR(20) NOT NULL,
-  `email` VARCHAR(255) NOT NULL,
-  `password` VARCHAR(255) NOT NULL,
-  `address` VARCHAR(255) NOT NULL,
-  `contact` VARCHAR(10) NOT NULL,
-  `role` VARCHAR(10) NOT NULL DEFAULT 'user',
-  `login_attempts` INT(11) NOT NULL DEFAULT 0,
-  `status` VARCHAR(20) NOT NULL DEFAULT 'active'
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+DROP TABLE IF EXISTS workouts;
+DROP TABLE IF EXISTS users;
 
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(20) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    address VARCHAR(255) NOT NULL,
+    contact VARCHAR(10) NOT NULL,
+    role VARCHAR(10) DEFAULT 'user',
+    login_attempts INT DEFAULT 0,
+    status VARCHAR(20) DEFAULT 'active'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Create the workouts table
 CREATE TABLE workouts (
     workoutId INT AUTO_INCREMENT PRIMARY KEY,
     userId INT NOT NULL,
@@ -24,13 +24,6 @@ CREATE TABLE workouts (
     weight DECIMAL(6,2) NOT NULL,
     restTime INT NOT NULL,
     workoutDate DATE NOT NULL,
-    notes TEXT
-);
-
-    CONSTRAINT `fk_workout_user`
-        FOREIGN KEY (`userId`)
-        REFERENCES `users`(`id`)
-        ON DELETE CASCADE
-        ON UPDATE CASCADE
+    notes TEXT,
+    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-

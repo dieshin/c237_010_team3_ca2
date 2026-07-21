@@ -32,8 +32,9 @@ db.connect((err) => {
 // MIDDLEWARE
 // =========================
 
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
+app.use(express.json());
 
 app.use(session({
     secret: 'secret',
@@ -337,11 +338,18 @@ app.get(
         res.render(
             'dashboard',
             {
-                user: req.session.user
+                user: req.session.user,
+                streak: 5,
+                weeklyProgress: [],
+                personalBests: [],
             }
         );
     }
 );
+
+// =========================
+// ADMIN DASHBOARD
+// =========================
 
 // =========================
 // ADMIN DASHBOARD
@@ -352,33 +360,30 @@ app.get(
     checkAuthenticated,
     checkAdmin,
     (req, res) => {
+        const lockedSql = "SELECT * FROM users WHERE status = 'locked'";
+        const allUsersSql = "SELECT * FROM users";
 
-        const sql = `
-            SELECT *
-            FROM users
-            WHERE status = 'locked'
-        `;
+        db.query(lockedSql, (err, lockedResults) => {
+            if (err) {
+                console.error(err);
+                return res.send('Database error');
+            }
 
-        db.query(
-            sql,
-            (err, results) => {
-
+            db.query(allUsersSql, (err, allResults) => {
                 if (err) {
-                    return res.send(
-                        'Database error'
-                    );
+                    console.error(err);
+                    return res.send('Database error');
                 }
 
-                res.render(
-                    'admin',
-                    {
-                        user: req.session.user,
-                        lockedUsers: results,
-                        messages: req.flash('success')
-                    }
-                );
-            }
-        );
+                // 3. Render the view with both datasets
+                res.render('admin', {
+                    user: req.session.user,
+                    lockedUsers: lockedResults,
+                    allUsers: allResults,
+                    messages: req.flash('success')
+                });
+            });
+        });
     }
 );
 
@@ -914,7 +919,155 @@ app.post(
         );
     }
 );
+// edit
+app.get(
+    '/workout/edit/:id',
+    checkAuthenticated,
+    (req, res) => {
 
+        const workoutId =
+            req.params.id;
+
+        const userId =
+            req.session.user.id;
+
+        const sql = `
+            SELECT *
+            FROM workouts
+            WHERE workoutId = ?
+            AND userId = ?
+        `;
+
+        db.query(
+            sql,
+            [
+                workoutId,
+                userId
+            ],
+            (err, results) => {
+
+                if (err) {
+
+                    console.error(err);
+
+                    req.flash(
+                        'error',
+                        'Database error fetching workout.'
+                    );
+
+                    return res.redirect(
+                        '/workout'
+                    );
+                }
+
+                if (results.length === 0) {
+
+                    req.flash(
+                        'error',
+                        'Workout not found.'
+                    );
+
+                    return res.redirect(
+                        '/workout'
+                    );
+                }
+
+                res.render(
+                    'editWorkout',
+                    {
+                        user:
+                            req.session.user,
+
+                        workout:
+                            results[0],
+
+                        errors:
+                            req.flash('error')
+                    }
+                );
+            }
+        );
+    }
+);
+app.post(
+    '/workout/edit/:id',
+    checkAuthenticated,
+    (req, res) => {
+
+        const workoutId =
+            req.params.id;
+
+        const userId =
+            req.session.user.id;
+
+        const {
+            title,
+            muscleGroup,
+            exerciseName,
+            sets,
+            reps,
+            weight,
+            restTime,
+            notes
+        } = req.body;
+
+        const sql = `
+            UPDATE workouts
+            SET
+                title = ?,
+                muscleGroup = ?,
+                exerciseName = ?,
+                sets = ?,
+                reps = ?,
+                weight = ?,
+                restTime = ?,
+                notes = ?
+            WHERE workoutId = ?
+            AND userId = ?
+        `;
+
+        db.query(
+            sql,
+            [
+                title,
+                muscleGroup,
+                exerciseName,
+                sets,
+                reps,
+                weight,
+                restTime,
+                notes,
+                workoutId,
+                userId
+            ],
+            (err) => {
+
+                if (err) {
+
+                    console.error(err);
+
+                    req.flash(
+                        'error',
+                        'Database error updating workout.'
+                    );
+
+                    return res.redirect(
+                        `/workout/edit/${workoutId}`
+                    );
+                }
+
+                req.flash(
+                    'success',
+                    'Workout updated successfully!'
+                );
+
+                res.redirect(
+                    '/workout'
+                );
+            }
+        );
+    }
+);
 // =========================
 // DELETE WORKOUT
 // =========================

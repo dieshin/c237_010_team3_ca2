@@ -87,7 +87,7 @@
                         </h5>
 
                         <h1 class="display-4 text-danger">
-                            <%= streak %>
+                            <%= typeof streak !== 'undefined' ? streak : 0 %>
                         </h1>
 
                         <p class="text-muted">
