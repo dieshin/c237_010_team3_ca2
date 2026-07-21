@@ -17,6 +17,7 @@
         <div class="navbar-nav">
             <a class="nav-link" href="/dashboard">Dashboard</a>
             <a class="nav-link" href="/workout/add">Add Workout</a>
+            <a class="nav-link" href="/edit">Edit Profile</a>
             <a class="nav-link" href="/logout">Logout</a>
         </div>
     </div>
@@ -183,17 +184,28 @@
 
                             <% } %>
 
-                            <form
-                                action="/workout/delete/<%= workout.workoutId %>"
-                                method="POST"
-                                onsubmit="return confirm('Are you sure you want to delete this workout?');"
-                            >
+                            <div class="d-flex gap-2">
 
-                                <button type="submit" class="btn btn-danger">
-                                    Delete
-                                </button>
+                                
+                                    href="/workout/edit/<%= workout.workoutId %>"
+                                    class="btn btn-primary"
+                                >
+                                    Edit
+                                </a>
 
-                            </form>
+                                <form
+                                    action="/workout/delete/<%= workout.workoutId %>"
+                                    method="POST"
+                                    onsubmit="return confirm('Are you sure you want to delete this workout?');"
+                                >
+
+                                    <button type="submit" class="btn btn-danger">
+                                        Delete
+                                    </button>
+
+                                </form>
+
+                            </div>
 
                         </div>
 
