@@ -495,6 +495,9 @@ app.post(
             contact
         } = req.body;
 
+        // role is intentionally NOT read from req.body here,
+        // so it can never reach the database from this route
+
         if (!username || !email || !address || !contact) {
 
             req.flash(
@@ -527,7 +530,7 @@ app.post(
 
                 if (err) {
 
-                    console.error('Edit error:', err);
+                    console.error('Edit profile error:', err);
 
                     req.flash(
                         'error',
@@ -537,7 +540,8 @@ app.post(
                     return res.redirect('/edit');
                 }
 
-                // keep the session in sync with the new values
+                // keep session in sync so the header/dashboard
+                // shows updated info without re-logging in
                 req.session.user.username = username;
                 req.session.user.email = email;
                 req.session.user.address = address;
@@ -549,6 +553,151 @@ app.post(
                 );
 
                 res.redirect('/dashboard');
+
+            }
+        );
+
+    }
+);
+
+// =========================
+// EDIT WORKOUT - SHOW FORM
+// =========================
+
+app.get(
+    '/workout/edit/:id',
+    checkAuthenticated,
+    (req, res) => {
+
+        const workoutId = req.params.id;
+        const userId = req.session.user.id;
+
+        const sql = `
+            SELECT *
+            FROM workouts
+            WHERE workoutId = ?
+            AND userId = ?
+        `;
+
+        db.query(
+            sql,
+            [workoutId, userId],
+            (err, results) => {
+
+                if (err) {
+                    return res.send('Database error');
+                }
+
+                if (results.length === 0) {
+                    req.flash('error', 'Workout not found');
+                    return res.redirect('/workout');
+                }
+
+                res.render(
+                    'editWorkout',
+                    {
+                        workout: results[0],
+                        user: req.session.user,
+                        errors: req.flash('error')
+                    }
+                );
+
+            }
+        );
+
+    }
+);
+
+
+// =========================
+// EDIT WORKOUT - SAVE CHANGES
+// =========================
+
+app.post(
+    '/workout/edit/:id',
+    checkAuthenticated,
+    (req, res) => {
+
+        const workoutId = req.params.id;
+        const userId = req.session.user.id;
+
+        const {
+            title,
+            muscleGroup,
+            exerciseName,
+            sets,
+            reps,
+            weight,
+            restTime,
+            notes
+        } = req.body;
+
+        if (
+            !title ||
+            !muscleGroup ||
+            !exerciseName ||
+            !sets ||
+            !reps ||
+            !weight ||
+            !restTime
+        ) {
+
+            req.flash(
+                'error',
+                'All fields are required.'
+            );
+
+            return res.redirect(`/workout/edit/${workoutId}`);
+        }
+
+        const sql = `
+            UPDATE workouts
+            SET title = ?,
+                muscleGroup = ?,
+                exerciseName = ?,
+                sets = ?,
+                reps = ?,
+                weight = ?,
+                restTime = ?,
+                notes = ?
+            WHERE workoutId = ?
+            AND userId = ?
+        `;
+
+        db.query(
+            sql,
+            [
+                title,
+                muscleGroup,
+                exerciseName,
+                sets,
+                reps,
+                weight,
+                restTime,
+                notes,
+                workoutId,
+                userId
+            ],
+            (err) => {
+
+                if (err) {
+
+                    console.error('Edit workout error:', err);
+
+                    req.flash(
+                        'error',
+                        'Database error updating workout.'
+                    );
+
+                    return res.redirect(`/workout/edit/${workoutId}`);
+                }
+
+                req.flash(
+                    'success',
+                    'Workout updated successfully.'
+                );
+
+                res.redirect('/workout');
 
             }
         );
