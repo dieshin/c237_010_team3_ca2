@@ -432,16 +432,15 @@ app.post(
 );
 
 // =========================
-// EDIT USER - SHOW FORM
+// EDIT OWN PROFILE - SHOW FORM
 // =========================
 
 app.get(
-    '/edit/:id',
+    '/edit',
     checkAuthenticated,
-    checkAdmin,
     (req, res) => {
 
-        const userId = req.params.id;
+        const userId = req.session.user.id;
 
         const sql = `
             SELECT *
@@ -460,7 +459,7 @@ app.get(
 
                 if (results.length === 0) {
                     req.flash('error', 'User not found');
-                    return res.redirect('/admin');
+                    return res.redirect('/dashboard');
                 }
 
                 res.render(
@@ -479,23 +478,21 @@ app.get(
 
 
 // =========================
-// EDIT USER - SAVE CHANGES
+// EDIT OWN PROFILE - SAVE CHANGES
 // =========================
 
 app.post(
-    '/edit/:id',
+    '/edit',
     checkAuthenticated,
-    checkAdmin,
     (req, res) => {
 
-        const userId = req.params.id;
+        const userId = req.session.user.id;
 
         const {
             username,
             email,
             address,
-            contact,
-            role
+            contact
         } = req.body;
 
         if (!username || !email || !address || !contact) {
@@ -505,7 +502,7 @@ app.post(
                 'All fields are required.'
             );
 
-            return res.redirect(`/edit/${userId}`);
+            return res.redirect('/edit');
         }
 
         const sql = `
@@ -513,8 +510,7 @@ app.post(
             SET username = ?,
                 email = ?,
                 address = ?,
-                contact = ?,
-                role = ?
+                contact = ?
             WHERE id = ?
         `;
 
@@ -525,7 +521,6 @@ app.post(
                 email,
                 address,
                 contact,
-                role,
                 userId
             ],
             (err) => {
@@ -536,18 +531,24 @@ app.post(
 
                     req.flash(
                         'error',
-                        'Database error updating user.'
+                        'Database error updating profile.'
                     );
 
-                    return res.redirect(`/edit/${userId}`);
+                    return res.redirect('/edit');
                 }
+
+                // keep the session in sync with the new values
+                req.session.user.username = username;
+                req.session.user.email = email;
+                req.session.user.address = address;
+                req.session.user.contact = contact;
 
                 req.flash(
                     'success',
-                    'User updated successfully.'
+                    'Profile updated successfully.'
                 );
 
-                res.redirect('/admin');
+                res.redirect('/dashboard');
 
             }
         );
