@@ -5,6 +5,10 @@ const flash = require('connect-flash');
 
 const app = express();
 
+// =========================
+// DATABASE CONNECTION
+// =========================
+
 const db = mysql.createConnection({
     host: 'c237-meilan-mysql.mysql.database.azure.com',
     user: 'c237_010',
@@ -24,6 +28,10 @@ db.connect((err) => {
     console.log('Connected to database');
 });
 
+// =========================
+// MIDDLEWARE
+// =========================
+
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static('public'));
 
@@ -39,7 +47,6 @@ app.use(session({
 app.use(flash());
 
 app.set('view engine', 'ejs');
-
 
 // =========================
 // AUTHENTICATION MIDDLEWARE
@@ -62,7 +69,6 @@ const checkAdmin = (req, res, next) => {
     req.flash('error', 'Access denied');
     res.redirect('/dashboard');
 };
-
 
 // =========================
 // REGISTRATION VALIDATION
@@ -95,7 +101,6 @@ const validateRegistration = (req, res, next) => {
     next();
 };
 
-
 // =========================
 // HOME PAGE
 // =========================
@@ -107,7 +112,6 @@ app.get('/', (req, res) => {
         errors: req.flash('error')
     });
 });
-
 
 // =========================
 // REGISTER
@@ -121,7 +125,6 @@ app.get('/register', (req, res) => {
 });
 
 app.post('/register', validateRegistration, (req, res) => {
-
     const {
         username,
         email,
@@ -149,7 +152,6 @@ app.post('/register', validateRegistration, (req, res) => {
             role
         ],
         (err) => {
-
             if (err) {
                 console.error('Registration error:', err);
                 return res.send('Error registering user');
@@ -165,29 +167,24 @@ app.post('/register', validateRegistration, (req, res) => {
     );
 });
 
-
 // =========================
 // LOGIN
 // =========================
 
 app.get('/login', (req, res) => {
-
     res.render('login', {
         messages: req.flash('success'),
         errors: req.flash('error')
     });
-
 });
 
 app.post('/login', (req, res) => {
-
     const {
         email,
         password
     } = req.body;
 
     if (!email || !password) {
-
         req.flash(
             'error',
             'All fields are required.'
@@ -206,14 +203,12 @@ app.post('/login', (req, res) => {
         checkUserSql,
         [email],
         (err, results) => {
-
             if (err) {
                 console.error(err);
                 return res.send('Database error');
             }
 
             if (results.length === 0) {
-
                 req.flash(
                     'error',
                     'Invalid email or password.'
@@ -225,7 +220,6 @@ app.post('/login', (req, res) => {
             const user = results[0];
 
             if (user.status === 'locked') {
-
                 req.flash(
                     'error',
                     'Your account is locked.'
@@ -243,17 +237,17 @@ app.post('/login', (req, res) => {
 
             db.query(
                 loginSql,
-                [email, password],
+                [
+                    email,
+                    password
+                ],
                 (err, loginResults) => {
-
                     if (err) {
                         console.error(err);
                         return res.send('Database error');
                     }
 
                     if (loginResults.length > 0) {
-
-                        const loggedInUser = loginResults[0];
 
                         db.query(
                             `
@@ -264,14 +258,16 @@ app.post('/login', (req, res) => {
                             [email]
                         );
 
-                        req.session.user = loggedInUser;
+                        req.session.user = loginResults[0];
 
                         req.flash(
                             'success',
                             'Login successful!'
                         );
 
-                        if (loggedInUser.role === 'admin') {
+                        if (
+                            loginResults[0].role === 'admin'
+                        ) {
                             return res.redirect('/admin');
                         }
 
@@ -288,7 +284,7 @@ app.post('/login', (req, res) => {
                                 `
                                 UPDATE users
                                 SET login_attempts = ?,
-                                    status = 'locked'
+                                status = 'locked'
                                 WHERE email = ?
                                 `,
                                 [
@@ -330,7 +326,6 @@ app.post('/login', (req, res) => {
     );
 });
 
-
 // =========================
 // USER DASHBOARD
 // =========================
@@ -339,20 +334,17 @@ app.get(
     '/dashboard',
     checkAuthenticated,
     (req, res) => {
-
         res.render(
             'dashboard',
             {
                 user: req.session.user
             }
         );
-
     }
 );
 
-
 // =========================
-// ADMIN PAGE
+// ADMIN DASHBOARD
 // =========================
 
 app.get(
@@ -372,7 +364,9 @@ app.get(
             (err, results) => {
 
                 if (err) {
-                    return res.send('Database error');
+                    return res.send(
+                        'Database error'
+                    );
                 }
 
                 res.render(
@@ -383,16 +377,13 @@ app.get(
                         messages: req.flash('success')
                     }
                 );
-
             }
         );
-
     }
 );
 
-
 // =========================
-// UNLOCK USER ACCOUNT
+// UNLOCK USER
 // =========================
 
 app.post(
@@ -406,7 +397,7 @@ app.post(
         const sql = `
             UPDATE users
             SET login_attempts = 0,
-                status = 'active'
+            status = 'active'
             WHERE id = ?
         `;
 
@@ -416,302 +407,26 @@ app.post(
             (err) => {
 
                 if (err) {
-                    return res.send('Database error');
+                    return res.send(
+                        'Database error'
+                    );
                 }
 
                 req.flash(
                     'success',
-                    'Account unlocked successfully.'
+                    'Account unlocked.'
                 );
 
                 res.redirect('/admin');
             }
         );
-
     }
 );
 
-// =========================
-// EDIT OWN PROFILE - SHOW FORM
-// =========================
-
-app.get(
-    '/edit',
-    checkAuthenticated,
-    (req, res) => {
-
-        const userId = req.session.user.id;
-
-        const sql = `
-            SELECT *
-            FROM users
-            WHERE id = ?
-        `;
-
-        db.query(
-            sql,
-            [userId],
-            (err, results) => {
-
-                if (err) {
-                    return res.send('Database error');
-                }
-
-                if (results.length === 0) {
-                    req.flash('error', 'User not found');
-                    return res.redirect('/dashboard');
-                }
-
-                res.render(
-                    'edit',
-                    {
-                        user: results[0],
-                        messages: req.flash('error')
-                    }
-                );
-
-            }
-        );
-
-    }
-);
-
-
-// =========================
-// EDIT OWN PROFILE - SAVE CHANGES
-// =========================
-
-app.post(
-    '/edit',
-    checkAuthenticated,
-    (req, res) => {
-
-        const userId = req.session.user.id;
-
-        const {
-            username,
-            email,
-            address,
-            contact
-        } = req.body;
-
-        // role is intentionally NOT read from req.body here,
-        // so it can never reach the database from this route
-
-        if (!username || !email || !address || !contact) {
-
-            req.flash(
-                'error',
-                'All fields are required.'
-            );
-
-            return res.redirect('/edit');
-        }
-
-        const sql = `
-            UPDATE users
-            SET username = ?,
-                email = ?,
-                address = ?,
-                contact = ?
-            WHERE id = ?
-        `;
-
-        db.query(
-            sql,
-            [
-                username,
-                email,
-                address,
-                contact,
-                userId
-            ],
-            (err) => {
-
-                if (err) {
-
-                    console.error('Edit profile error:', err);
-
-                    req.flash(
-                        'error',
-                        'Database error updating profile.'
-                    );
-
-                    return res.redirect('/edit');
-                }
-
-                // keep session in sync so the header/dashboard
-                // shows updated info without re-logging in
-                req.session.user.username = username;
-                req.session.user.email = email;
-                req.session.user.address = address;
-                req.session.user.contact = contact;
-
-                req.flash(
-                    'success',
-                    'Profile updated successfully.'
-                );
-
-                res.redirect('/dashboard');
-
-            }
-        );
-
-    }
-);
-
-// =========================
-// EDIT WORKOUT - SHOW FORM
-// =========================
-
-app.get(
-    '/workout/edit/:id',
-    checkAuthenticated,
-    (req, res) => {
-
-        const workoutId = req.params.id;
-        const userId = req.session.user.id;
-
-        const sql = `
-            SELECT *
-            FROM workouts
-            WHERE workoutId = ?
-            AND userId = ?
-        `;
-
-        db.query(
-            sql,
-            [workoutId, userId],
-            (err, results) => {
-
-                if (err) {
-                    return res.send('Database error');
-                }
-
-                if (results.length === 0) {
-                    req.flash('error', 'Workout not found');
-                    return res.redirect('/workout');
-                }
-
-                res.render(
-                    'editWorkout',
-                    {
-                        workout: results[0],
-                        user: req.session.user,
-                        errors: req.flash('error')
-                    }
-                );
-
-            }
-        );
-
-    }
-);
-
-
-// =========================
-// EDIT WORKOUT - SAVE CHANGES
-// =========================
-
-app.post(
-    '/workout/edit/:id',
-    checkAuthenticated,
-    (req, res) => {
-
-        const workoutId = req.params.id;
-        const userId = req.session.user.id;
-
-        const {
-            title,
-            muscleGroup,
-            exerciseName,
-            sets,
-            reps,
-            weight,
-            restTime,
-            notes
-        } = req.body;
-
-        if (
-            !title ||
-            !muscleGroup ||
-            !exerciseName ||
-            !sets ||
-            !reps ||
-            !weight ||
-            !restTime
-        ) {
-
-            req.flash(
-                'error',
-                'All fields are required.'
-            );
-
-            return res.redirect(`/workout/edit/${workoutId}`);
-        }
-
-        const sql = `
-            UPDATE workouts
-            SET title = ?,
-                muscleGroup = ?,
-                exerciseName = ?,
-                sets = ?,
-                reps = ?,
-                weight = ?,
-                restTime = ?,
-                notes = ?
-            WHERE workoutId = ?
-            AND userId = ?
-        `;
-
-        db.query(
-            sql,
-            [
-                title,
-                muscleGroup,
-                exerciseName,
-                sets,
-                reps,
-                weight,
-                restTime,
-                notes,
-                workoutId,
-                userId
-            ],
-            (err) => {
-
-                if (err) {
-
-                    console.error('Edit workout error:', err);
-
-                    req.flash(
-                        'error',
-                        'Database error updating workout.'
-                    );
-
-                    return res.redirect(`/workout/edit/${workoutId}`);
-                }
-
-                req.flash(
-                    'success',
-                    'Workout updated successfully.'
-                );
-
-                res.redirect('/workout');
-
-            }
-        );
-
-    }
-);
-
-// =========================
-// PART D + PART F
-// VIEW WORKOUTS
-// SEARCH
-// FILTER
-// ORGANISE
-// =========================
+// ==================================================
+// WORKOUT PAGE
+// SEARCHING, FILTERING, SORTING AND STATISTICS
+// ==================================================
 
 app.get(
     '/workout',
@@ -737,13 +452,12 @@ app.get(
 
         const values = [userId];
 
-
-        // SEARCH BY TITLE OR EXERCISE NAME
-
+        // SEARCH
         if (search) {
 
             sql += `
-                AND (
+                AND
+                (
                     exerciseName LIKE ?
                     OR title LIKE ?
                 )
@@ -755,9 +469,7 @@ app.get(
             );
         }
 
-
         // FILTER BY MUSCLE GROUP
-
         if (muscleGroup) {
 
             sql += `
@@ -767,9 +479,7 @@ app.get(
             values.push(muscleGroup);
         }
 
-
-        // ORGANISE / SORT RESULTS
-
+        // SORTING
         if (sort === 'oldest') {
 
             sql += `
@@ -782,6 +492,12 @@ app.get(
                 ORDER BY weight DESC
             `;
 
+        } else if (sort === 'lightest') {
+
+            sql += `
+                ORDER BY weight ASC
+            `;
+
         } else {
 
             sql += `
@@ -789,14 +505,13 @@ app.get(
             `;
         }
 
-
+        // GET WORKOUTS
         db.query(
             sql,
             values,
-            (err, results) => {
+            (err, workouts) => {
 
                 if (err) {
-
                     console.error(
                         'Error retrieving workouts:',
                         err
@@ -807,23 +522,260 @@ app.get(
                     );
                 }
 
-                res.render(
-                    'workout',
-                    {
-                        workouts: results,
-                        user: req.session.user,
-                        search: search,
-                        muscleGroup: muscleGroup,
-                        sort: sort
+                // =========================
+                // WORKOUT STREAK
+                // =========================
+
+                const streakSql = `
+                    SELECT DISTINCT
+                    DATE(workoutDate)
+                    AS workoutDay
+
+                    FROM workouts
+
+                    WHERE userId = ?
+
+                    ORDER BY workoutDay DESC
+                `;
+
+                db.query(
+                    streakSql,
+                    [userId],
+                    (err, streakResults) => {
+
+                        if (err) {
+                            console.error(err);
+
+                            return res.send(
+                                'Error calculating workout streak'
+                            );
+                        }
+
+                        let streak = 0;
+
+                        if (
+                            streakResults.length > 0
+                        ) {
+
+                            const today =
+                                new Date();
+
+                            today.setHours(
+                                0,
+                                0,
+                                0,
+                                0
+                            );
+
+                            const latestWorkout =
+                                new Date(
+                                    streakResults[0]
+                                        .workoutDay
+                                );
+
+                            latestWorkout.setHours(
+                                0,
+                                0,
+                                0,
+                                0
+                            );
+
+                            const daysSinceWorkout =
+                                Math.floor(
+                                    (
+                                        today -
+                                        latestWorkout
+                                    ) /
+                                    (
+                                        1000 *
+                                        60 *
+                                        60 *
+                                        24
+                                    )
+                                );
+
+                            if (
+                                daysSinceWorkout <= 1
+                            ) {
+
+                                streak = 1;
+
+                                for (
+                                    let i = 1;
+                                    i < streakResults.length;
+                                    i++
+                                ) {
+
+                                    const previousDate =
+                                        new Date(
+                                            streakResults[
+                                                i - 1
+                                            ].workoutDay
+                                        );
+
+                                    const currentDate =
+                                        new Date(
+                                            streakResults[
+                                                i
+                                            ].workoutDay
+                                        );
+
+                                    previousDate.setHours(
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    );
+
+                                    currentDate.setHours(
+                                        0,
+                                        0,
+                                        0,
+                                        0
+                                    );
+
+                                    const difference =
+                                        Math.floor(
+                                            (
+                                                previousDate -
+                                                currentDate
+                                            ) /
+                                            (
+                                                1000 *
+                                                60 *
+                                                60 *
+                                                24
+                                            )
+                                        );
+
+                                    if (
+                                        difference === 1
+                                    ) {
+
+                                        streak++;
+
+                                    } else {
+
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        // =========================
+                        // WEEKLY PROGRESS
+                        // =========================
+
+                        const weeklySql = `
+                            SELECT
+                            DATE(workoutDate)
+                            AS workoutDay,
+
+                            COUNT(*)
+                            AS workoutCount
+
+                            FROM workouts
+
+                            WHERE userId = ?
+
+                            AND workoutDate >=
+                            DATE_SUB(
+                                CURDATE(),
+                                INTERVAL 6 DAY
+                            )
+
+                            GROUP BY
+                            DATE(workoutDate)
+
+                            ORDER BY workoutDay ASC
+                        `;
+
+                        db.query(
+                            weeklySql,
+                            [userId],
+                            (err, weeklyProgress) => {
+
+                                if (err) {
+                                    console.error(err);
+
+                                    return res.send(
+                                        'Error retrieving weekly progress'
+                                    );
+                                }
+
+                                // =========================
+                                // PERSONAL BESTS
+                                // =========================
+
+                                const personalBestSql = `
+                                    SELECT
+                                    exerciseName,
+
+                                    MAX(weight)
+                                    AS personalBest
+
+                                    FROM workouts
+
+                                    WHERE userId = ?
+
+                                    GROUP BY
+                                    exerciseName
+
+                                    ORDER BY
+                                    personalBest DESC
+                                `;
+
+                                db.query(
+                                    personalBestSql,
+                                    [userId],
+                                    (err, personalBests) => {
+
+                                        if (err) {
+                                            console.error(err);
+
+                                            return res.send(
+                                                'Error retrieving personal bests'
+                                            );
+                                        }
+
+                                        res.render(
+                                            'workout',
+                                            {
+                                                workouts:
+                                                    workouts,
+
+                                                user:
+                                                    req.session.user,
+
+                                                search:
+                                                    search,
+
+                                                muscleGroup:
+                                                    muscleGroup,
+
+                                                sort:
+                                                    sort,
+
+                                                streak:
+                                                    streak,
+
+                                                weeklyProgress:
+                                                    weeklyProgress,
+
+                                                personalBests:
+                                                    personalBests
+                                            }
+                                        );
+                                    }
+                                );
+                            }
+                        );
                     }
                 );
-
             }
         );
-
     }
 );
-
 
 // =========================
 // ADD WORKOUT PAGE
@@ -842,10 +794,8 @@ app.get(
                 success: req.flash('success')
             }
         );
-
     }
 );
-
 
 // =========================
 // ADD WORKOUT
@@ -870,7 +820,6 @@ app.post(
         const userId =
             req.session.user.id;
 
-
         if (
             !title ||
             !muscleGroup ||
@@ -891,7 +840,6 @@ app.post(
             );
         }
 
-
         const sql = `
             INSERT INTO workouts
             (
@@ -906,9 +854,21 @@ app.post(
                 workoutDate,
                 notes
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
-        `;
 
+            VALUES
+            (
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                NOW(),
+                ?
+            )
+        `;
 
         db.query(
             sql,
@@ -947,14 +907,13 @@ app.post(
                     'Workout successfully tracked!'
                 );
 
-                res.redirect('/workout');
-
+                res.redirect(
+                    '/workout'
+                );
             }
         );
-
     }
 );
-
 
 // =========================
 // DELETE WORKOUT
@@ -971,13 +930,13 @@ app.post(
         const userId =
             req.session.user.id;
 
-
         const sql = `
             DELETE FROM workouts
+
             WHERE workoutId = ?
+
             AND userId = ?
         `;
-
 
         db.query(
             sql,
@@ -1004,14 +963,13 @@ app.post(
                     'Workout deleted successfully.'
                 );
 
-                res.redirect('/workout');
-
+                res.redirect(
+                    '/workout'
+                );
             }
         );
-
     }
 );
-
 
 // =========================
 // LOGOUT
@@ -1030,14 +988,13 @@ app.get(
                     );
                 }
 
-                res.redirect('/login');
-
+                res.redirect(
+                    '/login'
+                );
             }
         );
-
     }
 );
-
 
 // =========================
 // START SERVER
@@ -1046,10 +1003,8 @@ app.get(
 app.listen(
     3000,
     () => {
-
         console.log(
-            'Server started on port http://localhost:3000'
+            'Server started on http://localhost:3000'
         );
-
     }
 );
