@@ -33,12 +33,12 @@
                 <tbody>
                     <% lockedUsers.forEach(function(lockedUser) { %>
                         <tr>
-                            <td><%= lockedUser.id %></td>
+                            <td><%= lockedUser.id || lockedUser.userId %></td>
                             <td><%= lockedUser.username %></td>
                             <td><%= lockedUser.email %></td>
                             <td><span class="badge bg-danger"><%= lockedUser.login_attempts %></span></td>
                             <td>
-                                <form action="/admin/unlock/<%= lockedUser.id %>" method="POST" class="d-inline">
+                                <form action="/admin/unlock/<%= lockedUser.id|| lockedUser.userId %>" method="POST" class="d-inline">
                                     <button type="submit" class="btn btn-success btn-sm">Unlock Account</button>
                                 </form>
                             </td>

@@ -24,15 +24,7 @@ db.connect((err) => {
     console.log('Connected to database');
 });
 
-<<<<<<< HEAD
-// =========================
-// MIDDLEWARE
-// =========================
-
-app.use(express.urlencoded({ extended: true }));
-=======
 app.use(express.urlencoded({ extended: false }));
->>>>>>> a837161c4cedc0fe183668ef356ce92cbf1a4a93
 app.use(express.static('public'));
 app.use(express.json());
 
@@ -59,7 +51,7 @@ const checkAuthenticated = (req, res, next) => {
         return next();
     }
 
-    req.flash('error', 'Please log in to view this resource');
+    req.flash('error', 'Please log in again');
     res.redirect('/login');
 };
 
@@ -67,10 +59,10 @@ const checkAdmin = (req, res, next) => {
     if (req.session.user && req.session.user.role === 'admin') {
         return next();
     }
-
     req.flash('error', 'Access denied');
-    res.redirect('/dashboard');
+    res.redirect('/dashboard'); 
 };
+
 
 
 // =========================
@@ -136,15 +128,17 @@ app.post('/register', validateRegistration, (req, res) => {
         email,
         password,
         address,
-        contact
+        contact,
+        role // <--- 1. Pull role from req.body
     } = req.body;
 
-    const role = 'user';
+    // 2. Fallback to 'user' if no role was selected
+    const userRole = role || 'user'; 
 
     const sql = `
         INSERT INTO users
         (username, email, password, address, contact, role)
-        VALUES (?, ?, SHA1(?), ?, ?, ?)
+        VALUES (?, ?, SHA2(?,256), ?, ?, ?)
     `;
 
     db.query(
@@ -155,25 +149,19 @@ app.post('/register', validateRegistration, (req, res) => {
             password,
             address,
             contact,
-            role
+            userRole // <--- 3. Pass userRole here
         ],
         (err) => {
-
             if (err) {
                 console.error('Registration error:', err);
                 return res.send('Error registering user');
             }
 
-            req.flash(
-                'success',
-                'Registration successful! Please log in.'
-            );
-
+            req.flash('success', 'Registration successful! Please log in.');
             res.redirect('/login');
         }
     );
 });
-
 
 // =========================
 // LOGIN
@@ -190,18 +178,10 @@ app.get('/login', (req, res) => {
 
 app.post('/login', (req, res) => {
 
-    const {
-        email,
-        password
-    } = req.body;
+    const { email, password } = req.body;
 
     if (!email || !password) {
-
-        req.flash(
-            'error',
-            'All fields are required.'
-        );
-
+        req.flash('error', 'All fields are required.');
         return res.redirect('/login');
     }
 
@@ -211,132 +191,88 @@ app.post('/login', (req, res) => {
         WHERE email = ?
     `;
 
-    db.query(
-        checkUserSql,
-        [email],
-        (err, results) => {
+    db.query(checkUserSql, [email], (err, results) => {
+
+        if (err) {
+            console.error(err);
+            return res.send('Database error');
+        }
+
+        if (results.length === 0) {
+            req.flash('error', 'Invalid email or password.');
+            return res.redirect('/login');
+        }
+
+        const user = results[0];
+
+        if (user.status === 'locked') {
+            req.flash('error', 'Your account is locked.');
+            return res.redirect('/login');
+        }
+
+        const loginSql = `
+            SELECT *
+            FROM users
+            WHERE email = ?
+            AND password = SHA2(?, 256)
+        `;
+
+        db.query(loginSql, [email, password], (err, loginResults) => {
 
             if (err) {
                 console.error(err);
                 return res.send('Database error');
             }
 
-            if (results.length === 0) {
+            if (loginResults.length > 0) {
 
-                req.flash(
-                    'error',
-                    'Invalid email or password.'
+                const loggedInUser = loginResults[0];
+
+                db.query(
+                    `UPDATE users SET login_attempts = 0 WHERE email = ?`,
+                    [email]
                 );
 
-                return res.redirect('/login');
-            }
+                req.session.user = loggedInUser;
+                req.flash('success', 'Login successful!');
 
-            const user = results[0];
-
-            if (user.status === 'locked') {
-
-                req.flash(
-                    'error',
-                    'Your account is locked.'
-                );
-
-                return res.redirect('/login');
-            }
-
-            const loginSql = `
-                SELECT *
-                FROM users
-                WHERE email = ?
-                AND password = SHA1(?)
-            `;
-
-            db.query(
-                loginSql,
-                [email, password],
-                (err, loginResults) => {
-
-                    if (err) {
-                        console.error(err);
-                        return res.send('Database error');
-                    }
-
-                    if (loginResults.length > 0) {
-
-                        const loggedInUser = loginResults[0];
-
-                        db.query(
-                            `
-                            UPDATE users
-                            SET login_attempts = 0
-                            WHERE email = ?
-                            `,
-                            [email]
-                        );
-
-                        req.session.user = loggedInUser;
-
-                        req.flash(
-                            'success',
-                            'Login successful!'
-                        );
-
-                        if (loggedInUser.role === 'admin') {
-                            return res.redirect('/admin');
-                        }
-
-                        return res.redirect('/dashboard');
-
-                    } else {
-
-                        const newAttempts =
-                            user.login_attempts + 1;
-
-                        if (newAttempts >= 3) {
-
-                            db.query(
-                                `
-                                UPDATE users
-                                SET login_attempts = ?,
-                                    status = 'locked'
-                                WHERE email = ?
-                                `,
-                                [
-                                    newAttempts,
-                                    email
-                                ]
-                            );
-
-                            req.flash(
-                                'error',
-                                'Account locked after 3 failed attempts.'
-                            );
-
-                        } else {
-
-                            db.query(
-                                `
-                                UPDATE users
-                                SET login_attempts = ?
-                                WHERE email = ?
-                                `,
-                                [
-                                    newAttempts,
-                                    email
-                                ]
-                            );
-
-                            req.flash(
-                                'error',
-                                'Invalid email or password.'
-                            );
-                        }
-
-                        res.redirect('/login');
-                    }
+                if (loggedInUser.role === 'admin') {
+                    return res.redirect('/admin');
                 }
-            );
-        }
-    );
+
+                return res.redirect('/dashboard');
+
+            } else {
+
+                const newAttempts = user.login_attempts + 1;
+
+                if (newAttempts >= 3) {
+
+                    db.query(
+                        `UPDATE users SET login_attempts = ?, status = 'locked' WHERE email = ?`,
+                        [newAttempts, email],
+                        (err) => {
+                            if (err) console.error(err);
+                            req.flash('error', 'Account locked after 3 failed attempts.');
+                            return res.redirect('/login');
+                        }
+                    );
+
+                } else {
+
+                    db.query(
+                        `UPDATE users SET login_attempts = ? WHERE email = ?`,
+                        [newAttempts, email],
+                        (err) => {
+                            if (err) console.error(err);
+                            req.flash('error', 'Invalid email or password.');
+                            return res.redirect('/login');
+                        }
+                    );
+                }
+            }
+        }); 
+    });
 });
 
 
@@ -366,62 +302,60 @@ app.get(
 // =========================
 // ADMIN PAGE
 // =========================
+app.get('/admin', checkAuthenticated, checkAdmin, (req, res) => {
+    const lockedSql = "SELECT * FROM users WHERE status = 'locked'";
+    const allWorkoutsSql = `
+        SELECT workouts.*, users.username 
+        FROM workouts 
+        JOIN users ON workouts.userId = users.id OR workouts.userId = users.userId
+        ORDER BY workoutDate DESC
+    `;
 
-// =========================
-// ADMIN DASHBOARD
-// =========================
+    db.query(lockedSql, (err, lockedResults) => {
+        if (err) return res.send('Database error');
 
-app.get(
-    '/admin',
-    checkAuthenticated,
-    checkAdmin,
-    (req, res) => {
-        const lockedSql = "SELECT * FROM users WHERE status = 'locked'";
-        const allUsersSql = "SELECT * FROM users";
-
-        db.query(lockedSql, (err, lockedResults) => {
+        db.query(allWorkoutsSql, (err, workoutResults) => {
             if (err) {
-                console.error(err);
-                return res.send('Database error');
+                // If team member's column names differ, fall back safely
+                db.query("SELECT * FROM workouts ORDER BY workoutDate DESC", (err2, fallbackWorkouts) => {
+                    return res.render('admin', {
+                        user: req.session.user,
+                        lockedUsers: lockedResults || [],
+                        workouts: fallbackWorkouts || [],
+                        messages: req.flash('success'),
+                        errors: req.flash('error')
+                    });
+                });
+                return;
             }
 
-            db.query(allUsersSql, (err, allResults) => {
-                if (err) {
-<<<<<<< HEAD
-                    console.error(err);
-                    return res.send('Database error');
-                }
-
-                // 3. Render the view with both datasets
-                res.render('admin', {
-                    user: req.session.user,
-                    lockedUsers: lockedResults,
-                    allUsers: allResults,
-                    messages: req.flash('success')
-                });
+            res.render('admin', {
+                user: req.session.user,
+                lockedUsers: lockedResults || [],
+                workouts: workoutResults || [],
+                messages: req.flash('success'),
+                errors: req.flash('error')
             });
         });
-=======
-                    return res.send('Database error');
-                }
+    });
+});
 
-                res.render(
-                    'admin',
-                    {
-                        user: req.session.user,
-                        lockedUsers: results,
-                        messages: req.flash('success')
-                    }
-                );
+app.post('/admin/workout/delete/:id', checkAuthenticated, checkAdmin, (req, res) => {
+    const workoutId = req.params.id;
 
-            }
-        );
+    const sql = `DELETE FROM workouts WHERE workoutId = ?`;
 
->>>>>>> a837161c4cedc0fe183668ef356ce92cbf1a4a93
-    }
-);
+    db.query(sql, [workoutId], (err) => {
+        if (err) {
+            console.error(err);
+            req.flash('error', 'Database error deleting workout.');
+            return res.redirect('/admin');
+        }
 
-
+        req.flash('success', 'Workout deleted successfully.');
+        res.redirect('/admin');
+    });
+});
 // =========================
 // UNLOCK USER ACCOUNT
 // =========================
@@ -434,12 +368,11 @@ app.post(
 
         const userId = req.params.id;
 
-        const sql = `
-            UPDATE users
-            SET login_attempts = 0,
-                status = 'active'
-            WHERE id = ?
-        `;
+const sql = `
+    UPDATE users
+    SET login_attempts = 0, status = 'active'
+    WHERE id = ? OR userId = ?
+`;
 
         db.query(
             sql,
@@ -475,110 +408,48 @@ app.get(
     '/workout',
     checkAuthenticated,
     (req, res) => {
+        const userId = req.session.user.id || req.session.user.userId;
+        const search = req.query.search || '';
+        const muscleGroup = req.query.muscleGroup || '';
+        const sort = req.query.sort || 'newest';
 
-        const userId = req.session.user.id;
-
-        const search =
-            req.query.search || '';
-
-        const muscleGroup =
-            req.query.muscleGroup || '';
-
-        const sort =
-            req.query.sort || 'newest';
-
-        let sql = `
-            SELECT *
-            FROM workouts
-            WHERE userId = ?
-        `;
-
+        let sql = `SELECT * FROM workouts WHERE userId = ?`;
         const values = [userId];
 
-
-        // SEARCH BY TITLE OR EXERCISE NAME
-
         if (search) {
-
-            sql += `
-                AND (
-                    exerciseName LIKE ?
-                    OR title LIKE ?
-                )
-            `;
-
-            values.push(
-                `%${search}%`,
-                `%${search}%`
-            );
+            sql += ` AND (exerciseName LIKE ? OR title LIKE ?)`;
+            values.push(`%${search}%`, `%${search}%`);
         }
 
-
-        // FILTER BY MUSCLE GROUP
-
         if (muscleGroup) {
-
-            sql += `
-                AND muscleGroup = ?
-            `;
-
+            sql += ` AND muscleGroup = ?`;
             values.push(muscleGroup);
         }
 
-
-        // ORGANISE / SORT RESULTS
-
         if (sort === 'oldest') {
-
-            sql += `
-                ORDER BY workoutDate ASC
-            `;
-
+            sql += ` ORDER BY workoutDate ASC`;
         } else if (sort === 'heaviest') {
-
-            sql += `
-                ORDER BY weight DESC
-            `;
-
+            sql += ` ORDER BY weight DESC`;
         } else {
-
-            sql += `
-                ORDER BY workoutDate DESC
-            `;
+            sql += ` ORDER BY workoutDate DESC`;
         }
 
-
-        db.query(
-            sql,
-            values,
-            (err, results) => {
-
-                if (err) {
-
-                    console.error(
-                        'Error retrieving workouts:',
-                        err
-                    );
-
-                    return res.send(
-                        'Error retrieving workouts'
-                    );
-                }
-
-                res.render(
-                    'workout',
-                    {
-                        workouts: results,
-                        user: req.session.user,
-                        search: search,
-                        muscleGroup: muscleGroup,
-                        sort: sort
-                    }
-                );
-
+        db.query(sql, values, (err, results) => {
+            if (err) {
+                console.error('Error retrieving workouts:', err);
+                return res.send('Error retrieving workouts');
             }
-        );
 
+            res.render('workout', {
+                workouts: results,
+                user: req.session.user,
+                search: search,
+                muscleGroup: muscleGroup,
+                sort: sort,
+                messages: req.flash('success'),
+                errors: req.flash('error')
+            });
+        });
     }
 );
 
@@ -586,139 +457,60 @@ app.get(
 // =========================
 // ADD WORKOUT PAGE
 // =========================
+app.get('/workout/add', checkAuthenticated, (req, res) => {
+    res.render('addWorkout', {
+        user: req.session.user,
+        errors: req.flash('error'),
+        messages: req.flash('success')
+    });
+});
+app.post('/workout/add', checkAuthenticated, (req, res) => {
+    const {
+        title,
+        muscleGroup,
+        exerciseName,
+        sets,
+        reps,
+        weight,
+        restTime,
+        notes = '' 
+    } = req.body;
 
-app.get(
-    '/workout/add',
-    checkAuthenticated,
-    (req, res) => {
+    const userId = req.session.user.id || req.session.user.userId;
 
-        res.render(
-            'addWorkout',
-            {
-                user: req.session.user,
-                errors: req.flash('error'),
-                success: req.flash('success')
-            }
-        );
-
+    if (!title || !muscleGroup || !exerciseName || !sets || !reps || !weight || !restTime) {
+        req.flash('error', 'All fields are required.');
+        return res.redirect('/workout/add');
     }
-);
 
+    const sql = `
+        INSERT INTO workouts
+        (userId, title, muscleGroup, exerciseName, sets, reps, weight, restTime, workoutDate, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
+    `;
 
-// =========================
-// ADD WORKOUT
-// =========================
+    db.query(
+        sql,
+        [userId, title, muscleGroup, exerciseName, sets, reps, weight, restTime, notes],
+        (err) => {
+            if (err) {
+                console.error('Error saving workout:', err);
+                req.flash('error', 'Database error saving workout.');
+                return res.redirect('/workout/add');
+            }
 
-app.post(
-    '/workout/add',
-    checkAuthenticated,
-    (req, res) => {
-
-        const {
-            title,
-            muscleGroup,
-            exerciseName,
-            sets,
-            reps,
-            weight,
-            restTime,
-            notes
-        } = req.body;
-
-        const userId =
-            req.session.user.id;
-
-
-        if (
-            !title ||
-            !muscleGroup ||
-            !exerciseName ||
-            !sets ||
-            !reps ||
-            !weight ||
-            !restTime
-        ) {
-
-            req.flash(
-                'error',
-                'All fields are required.'
-            );
-
-            return res.redirect(
-                '/workout/add'
-            );
+            req.flash('success', 'Workout successfully tracked!');
+            res.redirect('/workout');
         }
-
-
-        const sql = `
-            INSERT INTO workouts
-            (
-                userId,
-                title,
-                muscleGroup,
-                exerciseName,
-                sets,
-                reps,
-                weight,
-                restTime,
-                workoutDate,
-                notes
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
-        `;
-
-
-        db.query(
-            sql,
-            [
-                userId,
-                title,
-                muscleGroup,
-                exerciseName,
-                sets,
-                reps,
-                weight,
-                restTime,
-                notes
-            ],
-            (err) => {
-
-                if (err) {
-
-                    console.error(
-                        'Error saving workout:',
-                        err
-                    );
-
-                    req.flash(
-                        'error',
-                        'Database error saving workout.'
-                    );
-
-                    return res.redirect(
-                        '/workout/add'
-                    );
-                }
-
-                req.flash(
-                    'success',
-                    'Workout successfully tracked!'
-                );
-
-                res.redirect('/workout');
-
-            }
-        );
-
-    }
-);
+    );
+});
 // edit
+
 app.get(
     '/workout/edit/:id',
     checkAuthenticated,
     (req, res) => {
 
-<<<<<<< HEAD
         const workoutId =
             req.params.id;
 
@@ -783,6 +575,7 @@ app.get(
         );
     }
 );
+
 app.post(
     '/workout/edit/:id',
     checkAuthenticated,
@@ -804,6 +597,11 @@ app.post(
             restTime,
             notes
         } = req.body;
+
+        if (!title || !muscleGroup || !exerciseName || !sets || !reps || !weight || !restTime) {
+            req.flash('error', 'All fields are required.');
+            return res.redirect(`/workout/edit/${workoutId}`);
+        }
 
         const sql = `
             UPDATE workouts
@@ -862,9 +660,7 @@ app.post(
         );
     }
 );
-=======
 
->>>>>>> a837161c4cedc0fe183668ef356ce92cbf1a4a93
 // =========================
 // DELETE WORKOUT
 // =========================
@@ -873,20 +669,14 @@ app.post(
     '/workout/delete/:id',
     checkAuthenticated,
     (req, res) => {
-
-        const workoutId =
-            req.params.id;
-
-        const userId =
-            req.session.user.id;
-
+        const workoutId = req.params.id;
+        const userId = req.session.user.id || req.session.user.userId;
 
         const sql = `
             DELETE FROM workouts
             WHERE workoutId = ?
             AND userId = ?
         `;
-
 
         db.query(
             sql,
@@ -895,14 +685,11 @@ app.post(
                 userId
             ],
             (err) => {
-
                 if (err) {
-
                     req.flash(
                         'error',
                         'Database error deleting workout.'
                     );
-
                     return res.redirect(
                         '/workout'
                     );
@@ -914,13 +701,10 @@ app.post(
                 );
 
                 res.redirect('/workout');
-
             }
         );
-
     }
 );
-
 
 // =========================
 // LOGOUT
@@ -929,23 +713,17 @@ app.post(
 app.get(
     '/logout',
     (req, res) => {
-
         req.session.destroy(
             (err) => {
-
                 if (err) {
                     return res.send(
                         'Error logging out'
                     );
                 }
-
                 res.redirect('/login');
-
             }
         );
-
-    }
-);
+    });
 
 
 // =========================
@@ -955,10 +733,8 @@ app.get(
 app.listen(
     3000,
     () => {
-
         console.log(
             'Server started on port http://localhost:3000'
         );
-
     }
 );
