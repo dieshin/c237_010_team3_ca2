@@ -431,6 +431,129 @@ app.post(
     }
 );
 
+// =========================
+// EDIT USER - SHOW FORM
+// =========================
+
+app.get(
+    '/edit/:id',
+    checkAuthenticated,
+    checkAdmin,
+    (req, res) => {
+
+        const userId = req.params.id;
+
+        const sql = `
+            SELECT *
+            FROM users
+            WHERE id = ?
+        `;
+
+        db.query(
+            sql,
+            [userId],
+            (err, results) => {
+
+                if (err) {
+                    return res.send('Database error');
+                }
+
+                if (results.length === 0) {
+                    req.flash('error', 'User not found');
+                    return res.redirect('/admin');
+                }
+
+                res.render(
+                    'edit',
+                    {
+                        user: results[0],
+                        messages: req.flash('error')
+                    }
+                );
+
+            }
+        );
+
+    }
+);
+
+
+// =========================
+// EDIT USER - SAVE CHANGES
+// =========================
+
+app.post(
+    '/edit/:id',
+    checkAuthenticated,
+    checkAdmin,
+    (req, res) => {
+
+        const userId = req.params.id;
+
+        const {
+            username,
+            email,
+            address,
+            contact,
+            role
+        } = req.body;
+
+        if (!username || !email || !address || !contact) {
+
+            req.flash(
+                'error',
+                'All fields are required.'
+            );
+
+            return res.redirect(`/edit/${userId}`);
+        }
+
+        const sql = `
+            UPDATE users
+            SET username = ?,
+                email = ?,
+                address = ?,
+                contact = ?,
+                role = ?
+            WHERE id = ?
+        `;
+
+        db.query(
+            sql,
+            [
+                username,
+                email,
+                address,
+                contact,
+                role,
+                userId
+            ],
+            (err) => {
+
+                if (err) {
+
+                    console.error('Edit error:', err);
+
+                    req.flash(
+                        'error',
+                        'Database error updating user.'
+                    );
+
+                    return res.redirect(`/edit/${userId}`);
+                }
+
+                req.flash(
+                    'success',
+                    'User updated successfully.'
+                );
+
+                res.redirect('/admin');
+
+            }
+        );
+
+    }
+);
 
 // =========================
 // PART D + PART F
