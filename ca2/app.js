@@ -498,7 +498,8 @@ app.post('/workout/add', checkAuthenticated, (req, res) => {
         }
     );
 });
-// edit
+
+// edit workout
 
 app.get(
     '/workout/edit/:id',
@@ -654,6 +655,60 @@ app.post(
         );
     }
 );
+
+// =========================
+// EDIT ACCOUNT
+// =========================
+
+app.get('/edit', checkAuthenticated, (req, res) => {
+    const userId = req.session.user.id || req.session.user.userId;
+
+    const sql = `SELECT id, username, email, address, contact FROM users WHERE id = ?`;
+
+    db.query(sql, [userId], (err, results) => {
+        if (err || results.length === 0) {
+            req.flash('error', 'Unable to load profile data.');
+            return res.redirect('/account');
+        }
+
+        res.render('edit', {
+            profile: results[0],
+            errors: req.flash('error')
+        });
+    });
+});
+
+app.post('/edit', checkAuthenticated, (req, res) => {
+    const { username, email, address, contact } = req.body;
+    const userId = req.session.user.id || req.session.user.userId;
+
+    if (!username || !email || !address || !contact) {
+        req.flash('error', 'All fields are required.');
+        return res.redirect('/edit');
+    }
+
+    const sql = `
+        UPDATE users
+        SET username = ?, email = ?, address = ?, contact = ?
+        WHERE id = ?
+    `;
+
+    db.query(sql, [username, email, address, contact, userId], (err) => {
+        if (err) {
+            console.error('Account update error:', err);
+            req.flash('error', 'Database error updating profile.');
+            return res.redirect('/edit');
+        }
+
+        req.session.user.username = username;
+        req.session.user.email = email;
+        req.session.user.address = address;
+        req.session.user.contact = contact;
+
+        req.flash('success', 'Profile updated successfully!');
+        res.redirect('/account');
+    });
+});
 
 // =========================
 // DELETE WORKOUT
