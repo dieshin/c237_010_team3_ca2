@@ -336,107 +336,117 @@ app.post('/admin/workout/delete/:id', checkAuthenticated, checkAdmin, (req, res)
 // FILTER
 // ORGANISE
 // =========================
-    
- app.get(
-
+ 
+app.get(
     '/workout',
-
     checkAuthenticated,
-
     (req, res) => {
 
-        const userId = req.session.user.id || req.session.user.userId;
+        const userId = req.session.user.id;
 
-        const search = req.query.search || '';
+        const search =
+            req.query.search || '';
 
-        const muscleGroup = req.query.muscleGroup || '';
+        const muscleGroup =
+            req.query.muscleGroup || '';
 
-        const sort = req.query.sort || 'newest';
+        const sort =
+            req.query.sort || 'newest';
 
-
-
-        let sql = `SELECT * FROM workouts WHERE userId = ?`;
+        let sql = `
+            SELECT *
+            FROM workouts
+            WHERE userId = ?
+        `;
 
         const values = [userId];
 
 
+        // SEARCH BY TITLE OR EXERCISE NAME
 
         if (search) {
 
-            sql += ` AND (exerciseName LIKE ? OR title LIKE ?)`;
+            sql += `
+                AND (
+                    exerciseName LIKE ?
+                    OR title LIKE ?
+                )
+            `;
 
-            values.push(`%${search}%`, `%${search}%`);
-
+            values.push(
+                `%${search}%`,
+                `%${search}%`
+            );
         }
 
 
+        // FILTER BY MUSCLE GROUP
 
         if (muscleGroup) {
 
-            sql += ` AND muscleGroup = ?`;
+            sql += `
+                AND muscleGroup = ?
+            `;
 
             values.push(muscleGroup);
-
         }
 
 
+        // ORGANISE / SORT RESULTS
 
         if (sort === 'oldest') {
 
-            sql += ` ORDER BY workoutDate ASC`;
+            sql += `
+                ORDER BY workoutDate ASC
+            `;
 
         } else if (sort === 'heaviest') {
 
-            sql += ` ORDER BY weight DESC`;
+            sql += `
+                ORDER BY weight DESC
+            `;
 
         } else {
 
-            sql += ` ORDER BY workoutDate DESC`;
-
+            sql += `
+                ORDER BY workoutDate DESC
+            `;
         }
 
 
+        db.query(
+            sql,
+            values,
+            (err, results) => {
 
-        db.query(sql, values, (err, results) => {
+                if (err) {
 
-            if (err) {
+                    console.error(
+                        'Error retrieving workouts:',
+                        err
+                    );
 
-                console.error('Error retrieving workouts:', err);
+                    return res.send(
+                        'Error retrieving workouts'
+                    );
+                }
 
-                return res.send('Error retrieving workouts');
+                res.render(
+                    'workout',
+                    {
+                        workouts: results,
+                        user: req.session.user,
+                        search: search,
+                        muscleGroup: muscleGroup,
+                        sort: sort
+                    }
+                );
 
             }
-
-
-
-            res.render('workout', {
-
-                workouts: results,
-
-                user: req.session.user,
-
-                search: search,
-
-                muscleGroup: muscleGroup,
-
-                sort: sort,
-
-                messages: req.flash('success'),
-
-                errors: req.flash('error')
-
-            });
-
-        });
+        );
 
     }
-
 );
-
-
-
-
-
 
 // =========================
 // ADD WORKOUT PAGE
