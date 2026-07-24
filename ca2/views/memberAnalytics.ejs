@@ -21,7 +21,7 @@
     <div class="container mb-5">
         <div class="card shadow-sm border-0 p-4 mb-4">
             <h2>Exclusive Member Insights</h2>
-            <p class="text-muted">Welcome, <strong><%= user.username %></strong>! Here you get access to advanced features.</p>
+            <p class="text-muted">Welcome, <strong><%= (typeof user !== 'undefined' && user) ? user.username : 'Member' %></strong>! Here you get access to advanced features.</p>
         </div>
 
         <div class="row">

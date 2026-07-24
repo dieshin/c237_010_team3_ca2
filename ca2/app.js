@@ -1,9 +1,9 @@
+require('dotenv').config()
 const path = require('path');
 const express = require('express');
 const mysql = require('mysql2');
 const session = require('express-session');
 const flash = require('connect-flash');
-
 const app = express();
 
 // Global announcement 
@@ -20,10 +20,10 @@ function logActivity(action) {
 }
 
 const db = mysql.createConnection({
-    host: process.env.DB_HOST || 'c237-meilan-mysql.mysql.database.azure.com',
-    user: process.env.DB_USER || 'c237_010',
-    password: process.env.DB_PASSWORD || 'c237010@2026!',
-    database: process.env.DB_NAME || 'c237_010_team3_ca2',
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
     ssl: { rejectUnauthorized: false }
 });
 db.connect((err) => {
@@ -39,7 +39,6 @@ app.use(express.static('public'));
 app.use(express.json());
 
 const admin_key = process.env.ADMIN_KEY;
-const member_key = process.env.MEMBER_KEY;
 
 app.use(session({
     secret: process.env.SESSION || 'fallback-secret',
