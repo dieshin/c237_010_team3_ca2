@@ -206,16 +206,154 @@ if (user.status === 'banned') {
 // USER DASHBOARD
 // =========================
 app.get('/dashboard', checkAuthenticated, (req, res) => {
-    const userId = req.session.user.id || req.session.user.userId;
-    const sql = `SELECT exerciseName, MAX(weight) as personalBest FROM workouts WHERE userId = ? GROUP BY exerciseName`;
 
-    db.query(sql, [userId], (err, pbResults) => {
-        res.render('dashboard', {
-            streak: 5,
-            weeklyProgress: [],
-            personalBests: pbResults || []
+    const userId = req.session.user.id || req.session.user.userId;
+
+    // =========================================
+    // 1. GET PERSONAL BESTS
+    // =========================================
+    const personalBestSql = `
+        SELECT
+            exerciseName,
+            MAX(weight) AS personalBest
+        FROM workouts
+        WHERE userId = ?
+        GROUP BY exerciseName
+        ORDER BY exerciseName ASC
+    `;
+
+    // =========================================
+    // 2. GET WORKOUT DAYS FOR STREAK
+    // =========================================
+    const streakSql = `
+        SELECT DISTINCT workoutDate
+        FROM workouts
+        WHERE userId = ?
+        ORDER BY workoutDate DESC
+    `;
+
+    // =========================================
+    // 3. GET THIS WEEK'S WORKOUT PROGRESS
+    // =========================================
+    const weeklyProgressSql = `
+        SELECT
+            DAYNAME(workoutDate) AS day,
+            COUNT(DISTINCT workoutDate) AS workoutCount
+        FROM workouts
+        WHERE userId = ?
+        AND workoutDate >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+        GROUP BY workoutDate, DAYNAME(workoutDate)
+        ORDER BY workoutDate ASC
+    `;
+
+    db.query(personalBestSql, [userId], (pbErr, pbResults) => {
+
+        if (pbErr) {
+            console.error('Error loading personal bests:', pbErr);
+            return res.send('Error loading dashboard data.');
+        }
+
+        db.query(streakSql, [userId], (streakErr, streakResults) => {
+
+            if (streakErr) {
+                console.error('Error loading workout streak:', streakErr);
+                return res.send('Error loading dashboard data.');
+            }
+
+            db.query(weeklyProgressSql, [userId], (weeklyErr, weeklyResults) => {
+
+                if (weeklyErr) {
+                    console.error('Error loading weekly progress:', weeklyErr);
+                    return res.send('Error loading dashboard data.');
+                }
+
+                // =========================================
+                // CALCULATE CURRENT CONSECUTIVE STREAK
+                // =========================================
+
+                let streak = 0;
+
+                if (streakResults.length > 0) {
+
+                    // Convert database dates into YYYY-MM-DD strings
+                    const workoutDates = streakResults.map(workout => {
+
+                        const date = new Date(workout.workoutDate);
+
+                        return date.toISOString().split('T')[0];
+
+                    });
+
+                    // Remove duplicates and sort newest first
+                    const uniqueDates = [...new Set(workoutDates)].sort().reverse();
+
+                    // Get today's date
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+
+                    const todayString = today.toISOString().split('T')[0];
+
+                    // Get yesterday's date
+                    const yesterday = new Date(today);
+                    yesterday.setDate(yesterday.getDate() - 1);
+
+                    const yesterdayString = yesterday.toISOString().split('T')[0];
+
+                    /*
+                        A streak is considered active if the user worked out:
+                        - Today
+                        OR
+                        - Yesterday
+
+                        This prevents the streak from immediately becoming 0
+                        if the user has not worked out yet today.
+                    */
+
+                    if (
+                        uniqueDates[0] === todayString ||
+                        uniqueDates[0] === yesterdayString
+                    ) {
+
+                        streak = 1;
+
+                        for (let i = 0; i < uniqueDates.length - 1; i++) {
+
+                            const currentDate = new Date(uniqueDates[i]);
+                            const previousDate = new Date(uniqueDates[i + 1]);
+
+                            const differenceInDays =
+                                (currentDate - previousDate) /
+                                (1000 * 60 * 60 * 24);
+
+                            if (differenceInDays === 1) {
+                                streak++;
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // =========================================
+                // SEND DATA TO DASHBOARD
+                // =========================================
+
+                res.render('dashboard', {
+
+                    streak: streak,
+
+                    weeklyProgress: weeklyResults || [],
+
+                    personalBests: pbResults || []
+
+                });
+
+            });
+
         });
+
     });
+
 });
 //membership
 app.get('/upgrade', checkAuthenticated, (req, res) => res.render('upgrade'));
