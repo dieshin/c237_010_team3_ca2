@@ -882,6 +882,55 @@ app.post(
         );
     }
 );
+app.get('/edit', checkAuthenticated, (req, res) => {
+    const sql = 'SELECT * FROM users WHERE id = ?';
+
+    db.query(sql, [req.session.user.id], (err, results) => {
+        if (err) {
+            console.error(err);
+            return res.send('Database error');
+        }
+
+        if (results.length === 0) {
+            return res.send('User not found');
+        }
+
+        res.render('edit', {
+            user: results[0]
+        });
+    });
+});
+app.post('/edit', checkAuthenticated, (req, res) => {
+    const { username, email, address, contact } = req.body;
+
+    const sql = `
+        UPDATE users
+        SET username = ?, email = ?, address = ?, contact = ?
+        WHERE id = ?
+    `;
+
+    db.query(
+        sql,
+        [
+            username,
+            email,
+            address,
+            contact,
+            req.session.user.id
+        ],
+        (err) => {
+            if (err) {
+                console.error(err);
+                return res.send('Database error');
+            }
+
+            req.session.user.username = username;
+            req.session.user.email = email;
+
+            res.redirect('/dashboard');
+        }
+    );
+});
 
 
 // LOGOUT
