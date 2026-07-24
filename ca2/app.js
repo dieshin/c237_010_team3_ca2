@@ -1,3 +1,4 @@
+const path = require('path');
 const express = require('express');
 const mysql = require('mysql2');
 const session = require('express-session');
@@ -19,13 +20,12 @@ function logActivity(action) {
 }
 
 const db = mysql.createConnection({
-    host: 'c237-meilan-mysql.mysql.database.azure.com',
-    user: 'c237_010',
-    password: 'c237010@2026!',
-    database: 'c237_010_team3_ca2',
+    host: process.env.DB_HOST || 'c237-meilan-mysql.mysql.database.azure.com',
+    user: process.env.DB_USER || 'c237_010',
+    password: process.env.DB_PASSWORD || 'c237010@2026!',
+    database: process.env.DB_NAME || 'c237_010_team3_ca2',
     ssl: { rejectUnauthorized: false }
 });
-
 db.connect((err) => {
     if (err) {
         console.error('Database connection error:', err);
@@ -38,11 +38,11 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.static('public'));
 app.use(express.json());
 
-const admin_key = process.env.admin_key || 'realadmin5106';
-const member_key = process.env.member_key || 'azuree24';
+const admin_key = process.env.ADMIN_KEY;
+const member_key = process.env.MEMBER_KEY;
 
 app.use(session({
-    secret: 'secret',
+    secret: process.env.SESSION || 'fallback-secret',
     resave: false,
     saveUninitialized: false,
     cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }
