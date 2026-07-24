@@ -381,9 +381,37 @@ app.post('/upgrade', checkAuthenticated, (req, res) => {
 });
 
 app.get('/workout/analytics', checkAuthenticated, checkMember, (req, res) => {
-    res.render('memberAnalytics');
-});
+    const userId = req.session.user.id || req.session.user.userId;
 
+    const maxWeightSql = `SELECT MAX(weight) AS max1RM FROM workouts WHERE userId = ?`;
+    
+    const distributionSql = `
+        SELECT 
+            muscleGroup AS category, 
+            ROUND((COUNT(*) * 100.0 / (SELECT COUNT(*) FROM workouts WHERE userId = ?)), 0) AS percentage
+        FROM workouts 
+        WHERE userId = ?
+        GROUP BY muscleGroup
+    `;
+
+    db.query(maxWeightSql, [userId], (err, maxResults) => {
+        if (err) return res.send('Error fetching analytics.');
+
+        db.query(distributionSql, [userId, userId], (err, distResults) => {
+            if (err) return res.send('Error fetching analytics.');
+
+            const max1RM = maxResults[0]?.max1RM || null;
+            const muscleDistribution = distResults || [];
+
+            res.render('memberAnalytics', {
+                user: req.session.user,
+                max1RM: max1RM,
+                monthIncrease: null, 
+                muscleDistribution: muscleDistribution
+            });
+        });
+    });
+});
 // =========================
 // ADMIN ROUTES
 // =========================
