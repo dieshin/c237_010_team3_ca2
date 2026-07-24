@@ -24,15 +24,14 @@
     <p>Welcome back, <strong><%= user.username %></strong>!</p>
 
     <!-- Error Alerts -->
-    <% if (errors && errors.length > 0) { %>
-        <div class="alert alert-danger"><%= errors %></div>
-    <% } %>
-
+<% if (typeof errors !== 'undefined' && errors && errors.length > 0) { %>
+    <div class="alert alert-danger"><%= errors %></div>
+<% } %>
     <!-- Success Alerts -->
-    <% if (success && success.length > 0) { %>
-        <div class="alert alert-success"><%= success %></div>
-    <% } %>
 
+<% if (typeof success !== 'undefined' && success && success.length > 0) { %>
+    <div class="alert alert-success"><%= success %></div>
+<% } %>
     <form action="/workout/add" method="POST">
         <div class="form-group">
             <label>Workout Session Title:</label>

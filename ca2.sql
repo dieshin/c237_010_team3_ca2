@@ -10,7 +10,8 @@ CREATE TABLE users (
     contact VARCHAR(10) NOT NULL,
     role VARCHAR(10) DEFAULT 'user',
     login_attempts INT DEFAULT 0,
-    status VARCHAR(20) DEFAULT 'active'
+    status VARCHAR(20) DEFAULT 'active',
+    is_banned TINYINT DEFAULT 0  -- 0 = Active/Normal, 1 = Banned
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE workouts (

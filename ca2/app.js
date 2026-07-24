@@ -5,14 +5,25 @@ const flash = require('connect-flash');
 
 const app = express();
 
+// Global announcement 
+let globalAnnouncement = "Welcome to Gym Tracker!";
+
+// logs
+let systemLogs = [
+    { timestamp: new Date().toLocaleString(), action: 'Website started up successfully' }
+];
+
+function logActivity(action) {
+    systemLogs.unshift({ timestamp: new Date().toLocaleString(), action });
+    if (systemLogs.length > 50) systemLogs.pop(); 
+}
+
 const db = mysql.createConnection({
     host: 'c237-meilan-mysql.mysql.database.azure.com',
     user: 'c237_010',
     password: 'c237010@2026!',
     database: 'c237_010_team3_ca2',
-    ssl: {
-        rejectUnauthorized: false
-    }
+    ssl: { rejectUnauthorized: false }
 });
 
 db.connect((err) => {
@@ -20,86 +31,81 @@ db.connect((err) => {
         console.error('Database connection error:', err);
         return;
     }
-
     console.log('Connected to database');
 });
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static('public'));
 app.use(express.json());
+
 const admin_key = process.env.admin_key || 'realadmin5106';
-const member_key = process.env.member_key|| 'azuree24';
+const member_key = process.env.member_key || 'azuree24';
+
 app.use(session({
     secret: 'secret',
     resave: false,
     saveUninitialized: false,
-    cookie: {
-        maxAge: 1000 * 60 * 60 * 24 * 7
-    }
+    cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }
 }));
 
 app.use(flash());
-
 app.set('view engine', 'ejs');
 
-//global
+// Global middlware
 app.use((req, res, next) => {
     res.locals.user = req.session.user || null;
     res.locals.messages = req.flash('success');
     res.locals.errors = req.flash('error');
-    res.locals.success = res.locals.messages;
-    res.locals.search = req.query.search || ''; 
+    res.locals.search = req.query.search || '';
+    res.locals.globalAnnouncement = globalAnnouncement;
     next();
 });
-// =========================
-// AUTHENTICATION MIDDLEWARE
-// =========================
 
+// =========================
+// AUTHENTICATION MIDDLEWARES
+// =========================
 const checkAuthenticated = (req, res, next) => {
-    if (req.session.user) {
-        return next();
-    }
-
-    req.flash('error', 'Please log in again');
+    if (req.session.user) return next();
+    req.flash('error', 'Please log in again.');
     res.redirect('/login');
 };
+
 const checkAdmin = (req, res, next) => {
-    if (req.session.user && req.session.user.role.toLowerCase().trim() === 'admin') {
+    if (req.session.user && req.session.user.role && req.session.user.role.toLowerCase().trim() === 'admin') {
         return next();
     }
-    req.flash('error', 'Access denied.');
-    res.redirect('/dashboard'); 
+    req.flash('error', 'Access denied. You are not an admin.');
+    res.redirect('/dashboard');
 };
 
+const checkMember = (req, res, next) => {
+    const role = req.session.user && req.session.user.role ? req.session.user.role.toLowerCase().trim() : '';
+    if (role === 'member' || role === 'admin') {
+        return next();
+    }
+    req.flash('error', 'Upgrade to a member to access this.');
+    res.redirect('/upgrade');
+};
 
-// =========================
-// REGISTRATION VALIDATION
-// =========================
 const validateRegistration = (req, res, next) => {
     const { username, email, password, address, contact } = req.body;
-
     if (!username || !email || !password || !address || !contact) {
         req.flash('error', 'All fields are required.');
         req.flash('formData', req.body);
         return res.redirect('/register');
     }
-
     if (password.length < 6) {
         req.flash('error', 'Password should be at least 6 characters long.');
         req.flash('formData', req.body);
         return res.redirect('/register');
     }
-
     next();
 };
 
 // =========================
 // HOME PAGE
 // =========================
-
-app.get('/', (req, res) => {
-    res.render('index');
-});
+app.get('/', (req, res) => res.render('index'));
 // =========================
 // REGISTER
 // =========================
@@ -108,15 +114,13 @@ app.get('/register', (req, res) => {
     const formData = req.flash('formData')[0] || {};
     res.render('register', { formData });
 });
+
 app.post('/register', validateRegistration, (req, res) => {
     const { username, email, password, address, contact, securityCode } = req.body;
 
     let assignedRole = 'user';
-    if (securityCode === admin_key) {
-        assignedRole = 'admin';
-    } else if (securityCode === member_key) {
-        assignedRole = 'member';
-    }
+    if (securityCode === admin_key) assignedRole = 'admin';
+    else if (securityCode === member_key) assignedRole = 'member';
 
     const sql = `
         INSERT INTO users (username, email, password, address, contact, role, login_attempts, status)
@@ -125,22 +129,20 @@ app.post('/register', validateRegistration, (req, res) => {
 
     db.query(sql, [username, email, password, address, contact, assignedRole], (err) => {
         if (err) {
-            console.error('Registration error:', err);
             req.flash('error', 'Database error during registration.');
             return res.redirect('/register');
         }
-
-        req.flash('success', `Account created successfully as [${assignedRole.toUpperCase()}]! Please log in.`);
+        logActivity(`New account registered: ${username} (${assignedRole.toUpperCase()})`);
+        req.flash('success', `Account created as [${assignedRole.toUpperCase()}]! Please log in.`);
         res.redirect('/login');
     });
 });
-
 // =========================
 // LOGIN
 // =========================
-app.get('/login', (req, res) => {
-    res.render('login');
-});
+
+app.get('/login', (req, res) => res.render('login'));
+
 app.post('/login', (req, res) => {
     const { email, password } = req.body;
 
@@ -149,75 +151,52 @@ app.post('/login', (req, res) => {
         return res.redirect('/login');
     }
 
-    const checkUserSql = `SELECT * FROM users WHERE email = ?`;
-
-    db.query(checkUserSql, [email], (err, results) => {
-        if (err) {
-            console.error('Login Error:', err);
-            req.flash('error', 'Database error during login.');
-            return res.redirect('/login');
-        }
-
-        if (results.length === 0) {
+    db.query(`SELECT * FROM users WHERE email = ?`, [email], (err, results) => {
+        if (err || results.length === 0) {
             req.flash('error', 'Invalid email or password.');
             return res.redirect('/login');
         }
 
         const user = results[0];
 
-        if (user.status === 'locked') {
-            req.flash('error', 'Your account is locked due to 3 failed attempts. Contact Admin.');
+        // Check if user is banned
+if (user.status === 'banned') {
+    req.flash('error', 'Your account has been banned by an administrator.');
+    return res.redirect('/login');
+}
+
+        // Check if user is locked
+        if (user.status === 'locked' || user.login_attempts >= 3) {
+            req.flash('error', 'Your account is locked. Contact Admin.');
             return res.redirect('/login');
         }
 
-        const loginSql = `
-            SELECT * FROM users 
-            WHERE email = ? AND password = LOWER(SHA2(?, 256))
-        `;
-
+        const loginSql = `SELECT * FROM users WHERE email = ? AND password = LOWER(SHA2(?, 256))`;
         db.query(loginSql, [email, password], (err, loginResults) => {
-            if (err) {
-                console.error('Password match error:', err);
-                req.flash('error', 'Database error.');
-                return res.redirect('/login');
-            }
-
-            if (loginResults.length > 0) {
+            if (loginResults && loginResults.length > 0) {
                 const loggedInUser = loginResults[0];
-
-                // Reset failed attempts on success
                 db.query(`UPDATE users SET login_attempts = 0 WHERE email = ?`, [email]);
-
+                
                 req.session.user = loggedInUser;
+                logActivity(`User logged in: ${loggedInUser.username}`);
                 req.flash('success', 'Login successful!');
 
                 if (loggedInUser.role && loggedInUser.role.toLowerCase().trim() === 'admin') {
                     return res.redirect('/admin');
                 }
                 return res.redirect('/dashboard');
-
             } else {
                 const newAttempts = (user.login_attempts || 0) + 1;
-
-                if (newAttempts >= 3) {
-                    db.query(
-                        `UPDATE users SET login_attempts = ?, status = 'locked' WHERE email = ?`,
-                        [newAttempts, email],
-                        () => {
-                            req.flash('error', 'Account locked after 3 failed login attempts.');
-                            return res.redirect('/login');
-                        }
-                    );
-                } else {
-                    db.query(
-                        `UPDATE users SET login_attempts = ? WHERE email = ?`,
-                        [newAttempts, email],
-                        () => {
-                            req.flash('error', `Invalid email or password. Attempts left: ${3 - newAttempts}`);
-                            return res.redirect('/login');
-                        }
-                    );
-                }
+                const updateStatus = newAttempts >= 3 ? 'locked' : 'active';
+                db.query(`UPDATE users SET login_attempts = ?, status = ? WHERE email = ?`, [newAttempts, updateStatus, email], () => {
+                    if (newAttempts >= 3) {
+                        logActivity(`Account locked due to 3 failed attempts: ${email}`);
+                        req.flash('error', 'Account locked after 3 failed login attempts.');
+                    } else {
+                        req.flash('error', `Invalid credentials. Attempts left: ${3 - newAttempts}`);
+                    }
+                    res.redirect('/login');
+                });
             }
         });
     });
@@ -228,7 +207,6 @@ app.post('/login', (req, res) => {
 // =========================
 app.get('/dashboard', checkAuthenticated, (req, res) => {
     const userId = req.session.user.id || req.session.user.userId;
-
     const sql = `SELECT exerciseName, MAX(weight) as personalBest FROM workouts WHERE userId = ? GROUP BY exerciseName`;
 
     db.query(sql, [userId], (err, pbResults) => {
@@ -239,11 +217,8 @@ app.get('/dashboard', checkAuthenticated, (req, res) => {
         });
     });
 });
-
-//member w fake payment
-app.get('/upgrade', checkAuthenticated, (req, res) => {
-    res.render('upgrade');
-});
+//membership
+app.get('/upgrade', checkAuthenticated, (req, res) => res.render('upgrade'));
 
 app.post('/upgrade', checkAuthenticated, (req, res) => {
     const { cardNumber, expiry, cvv, cardHolder } = req.body;
@@ -253,79 +228,96 @@ app.post('/upgrade', checkAuthenticated, (req, res) => {
         req.flash('error', 'Please fill in all payment details.');
         return res.redirect('/upgrade');
     }
-    const sql = `UPDATE users SET role = 'member' WHERE id = ?`;
 
-    db.query(sql, [userId], (err) => {
+    db.query(`UPDATE users SET role = 'member' WHERE id = ?`, [userId], (err) => {
         if (err) {
-            console.error(err);
             req.flash('error', 'Payment processed but database update failed.');
             return res.redirect('/upgrade');
         }
 
         req.session.user.role = 'member';
-        req.flash('success', 'Payment successful! Welcome to VIP Membership.');
+        logActivity(`User upgraded to VIP Member: ${req.session.user.username}`);
+        req.flash('success', ' Payment successful! Welcome');
         res.redirect('/dashboard');
     });
 });
-//view acc
-app.get('/account', checkAuthenticated, (req, res) => {
-    const userId = req.session.user.id || req.session.user.userId;
-    
-    const sql = `SELECT id, username, email, address, contact, role, status FROM users WHERE id = ?`;
-    db.query(sql, [userId], (err, results) => {
-        if (err || results.length === 0) {
-            req.flash('error', 'Unable to load profile data.');
-            return res.redirect('/dashboard');
-        }
-        res.render('account', { profile: results[0] });
-    });
+
+app.get('/workout/analytics', checkAuthenticated, checkMember, (req, res) => {
+    res.render('memberAnalytics');
 });
-// =========================
-// ADMIN PAGE
-// =========================
- app.get('/admin', checkAuthenticated, checkAdmin, (req, res) => {
-    const lockedSql = "SELECT * FROM users WHERE status = 'locked'";
-    const allWorkoutsSql = `
-        SELECT workouts.*, users.username 
-        FROM workouts 
-        JOIN users ON workouts.userId = users.id
-        ORDER BY workoutDate DESC
-    `;
 
-    db.query(lockedSql, (err, lockedResults) => {
-        if (err) return res.send('Database error');
+// =========================
+// ADMIN ROUTES
+// =========================
+app.get('/admin', checkAuthenticated, checkAdmin, (req, res) => {
+    const userCountSql = "SELECT COUNT(*) AS totalUsers FROM users";
+    const workoutCountSql = "SELECT COUNT(*) AS totalWorkouts FROM workouts";
 
-        db.query(allWorkoutsSql, (err, workoutResults) => {
-            res.render('admin', {
-                lockedUsers: lockedResults || [],
-                workouts: workoutResults || []
+    db.query(userCountSql, (err, userResults) => {
+        db.query(workoutCountSql, (err, countResults) => {
+            res.render('adminOverview', {
+                logs: systemLogs,
+                stats: {
+                    totalUsers: userResults ? userResults[0].totalUsers : 0,
+                    totalWorkouts: countResults ? countResults[0].totalWorkouts : 0
+                }
             });
         });
     });
 });
 
-app.post('/admin/unlock/:id', checkAuthenticated, checkAdmin, (req, res) => {
-    const userId = req.params.id;
-    const sql = `UPDATE users SET login_attempts = 0, status = 'active' WHERE id = ?`;
-
-    db.query(sql, [userId], (err) => {
-        if (err) return res.send('Database error');
-        req.flash('success', 'Account unlocked successfully.');
-        res.redirect('/admin');
+app.get('/admin/users', checkAuthenticated, checkAdmin, (req, res) => {
+    db.query("SELECT * FROM users", (err, userResults) => {
+        if (err) return res.send('Database error loading users.');
+        res.render('adminUsers', { allUsers: userResults || [] });
     });
 });
 
-app.post('/admin/workout/delete/:id', checkAuthenticated, checkAdmin, (req, res) => {
-    const workoutId = req.params.id;
-    const sql = `DELETE FROM workouts WHERE workoutId = ?`;
+app.post('/admin/announcement', checkAuthenticated, checkAdmin, (req, res) => {
+    if (req.body.announcement) {
+        globalAnnouncement = req.body.announcement;
+        logActivity(`Admin (${req.session.user.username}) posted global announcement: "${globalAnnouncement}"`);
+        req.flash('success', 'Global announcement updated successfully.');
+    }
+    res.redirect('/admin');
+});
 
-    db.query(sql, [workoutId], (err) => {
-        if (err) {
-            req.flash('error', 'Database error deleting workout.');
-            return res.redirect('/admin');
+app.post('/admin/unlock/:id', checkAuthenticated, checkAdmin, (req, res) => {
+    const userId = req.params.id;
+    db.query(`UPDATE users SET login_attempts = 0, status = 'active' WHERE id = ?`, [userId], (err) => {
+        logActivity(`Admin unlocked user ID #${userId}`);
+        req.flash('success', 'Account unlocked successfully.');
+        res.redirect('/admin/users');
+    });
+});
+app.post('/admin/ban/:id', checkAuthenticated, checkAdmin, (req, res) => {
+    const userId = req.params.id;
+
+    // 1. Get the current status from DB
+    db.query("SELECT username, status FROM users WHERE id = ?", [userId], (err, results) => {
+        if (err || results.length === 0) {
+            req.flash('error', 'User not found.');
+            return res.redirect('/admin/users');
         }
-        req.flash('success', 'Workout deleted successfully.');
-        res.redirect('/admin');
+
+        const user = results[0];
+        // If currently 'banned', change to 'active'. Otherwise, set to 'banned'.
+        const newStatus = (user.status === 'banned') ? 'active' : 'banned';
+
+        // 2. Save new status to database
+        db.query("UPDATE users SET status = ? WHERE id = ?", [newStatus, userId], (err) => {
+            if (err) {
+                console.error("Ban Query Error:", err);
+                req.flash('error', 'Failed to update user status.');
+                return res.redirect('/admin/users');
+            }
+
+            const actionText = (newStatus === 'banned') ? 'banned' : 'unbanned';
+            logActivity(`Admin ${actionText} user "${user.username}" (ID #${userId})`);
+
+            req.flash('success', `User "${user.username}" was successfully ${actionText}.`);
+            res.redirect('/admin/users');
+        });
     });
 });
 
@@ -336,7 +328,6 @@ app.post('/admin/workout/delete/:id', checkAuthenticated, checkAdmin, (req, res)
 // FILTER
 // ORGANISE
 // =========================
- 
 app.get(
     '/workout',
     checkAuthenticated,
@@ -655,7 +646,6 @@ app.post(
         );
     }
 );
-
 // =========================
 // EDIT ACCOUNT
 // =========================
@@ -755,24 +745,11 @@ app.post(
     }
 );
 
-// =========================
-// LOGOUT
-// =========================
-app.get('/logout', (req, res) => {
-    req.session.destroy((err) => {
-        if (err) return res.send('Error logging out');
-        res.redirect('/');
-    });
-});
-// =========================
-// START SERVER
-// =========================
 
-app.listen(
-    3000,
-    () => {
-        console.log(
-            'Server started on port http://localhost:3000'
-        );
-    }
-);
+// LOGOUT
+app.get('/logout', (req, res) => {
+    req.session.destroy(() => res.redirect('/'));
+});
+
+// START SERVER
+app.listen(3000, () => console.log('Server started on http://localhost:3000'));
