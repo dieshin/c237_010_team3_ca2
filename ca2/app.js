@@ -7,7 +7,7 @@ const flash = require('connect-flash');
 const app = express();
 
 // Global announcement 
-let globalAnnouncement = "Welcome to Gym Tracker!";
+let globalAnnouncement = "Welcome to Anytime Gym!";
 
 // logs
 let systemLogs = [
@@ -458,7 +458,6 @@ app.post('/admin/unlock/:id', checkAuthenticated, checkAdmin, (req, res) => {
 app.post('/admin/ban/:id', checkAuthenticated, checkAdmin, (req, res) => {
     const userId = req.params.id;
 
-    // 1. Get the current status from DB
     db.query("SELECT username, status FROM users WHERE id = ?", [userId], (err, results) => {
         if (err || results.length === 0) {
             req.flash('error', 'User not found.');
@@ -469,7 +468,7 @@ app.post('/admin/ban/:id', checkAuthenticated, checkAdmin, (req, res) => {
         // If currently 'banned', change to 'active'. Otherwise, set to 'banned'.
         const newStatus = (user.status === 'banned') ? 'active' : 'banned';
 
-        // 2. Save new status to database
+        // Save new status to database
         db.query("UPDATE users SET status = ? WHERE id = ?", [newStatus, userId], (err) => {
             if (err) {
                 console.error("Ban Query Error:", err);
