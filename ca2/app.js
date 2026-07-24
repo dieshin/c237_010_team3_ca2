@@ -882,12 +882,22 @@ app.post(
         );
     }
 );
-app.get('/edit', checkAuthenticated, (req, res) => {
-    const sql = 'SELECT * FROM users WHERE id = ?';
+// =========================
+// ACCOUNT PAGE
+// =========================
 
-    db.query(sql, [req.session.user.id], (err, results) => {
+app.get('/account', checkAuthenticated, (req, res) => {
+    const userId = req.session.user.id;
+
+    const sql = `
+        SELECT id, username, email, address, contact, role
+        FROM users
+        WHERE id = ?
+    `;
+
+    db.query(sql, [userId], (err, results) => {
         if (err) {
-            console.error(err);
+            console.error('Account page error:', err);
             return res.send('Database error');
         }
 
@@ -895,44 +905,62 @@ app.get('/edit', checkAuthenticated, (req, res) => {
             return res.send('User not found');
         }
 
-        res.render('edit', {
-            user: results[0]
+        res.render('account', {
+            user: results[0],
+            successMessage: req.flash('success'),
+            errorMessage: req.flash('error')
         });
     });
 });
-app.post('/edit', checkAuthenticated, (req, res) => {
-    const { username, email, address, contact } = req.body;
+
+// =========================
+// UPDATE ACCOUNT
+// =========================
+
+app.post('/account', checkAuthenticated, (req, res) => {
+    const userId = req.session.user.id;
+
+    const {
+        username,
+        email,
+        address,
+        contact
+    } = req.body;
+
+    if (!username || !email) {
+        req.flash('error', 'Username and email are required.');
+        return res.redirect('/account');
+    }
 
     const sql = `
         UPDATE users
-        SET username = ?, email = ?, address = ?, contact = ?
+        SET username = ?,
+            email = ?,
+            address = ?,
+            contact = ?
         WHERE id = ?
     `;
 
     db.query(
         sql,
-        [
-            username,
-            email,
-            address,
-            contact,
-            req.session.user.id
-        ],
+        [username, email, address, contact, userId],
         (err) => {
             if (err) {
-                console.error(err);
-                return res.send('Database error');
+                console.error('Account update error:', err);
+                req.flash('error', 'Unable to update account.');
+                return res.redirect('/account');
             }
 
             req.session.user.username = username;
             req.session.user.email = email;
+            req.session.user.address = address;
+            req.session.user.contact = contact;
 
-            res.redirect('/dashboard');
+            req.flash('success', 'Profile updated successfully.');
+            res.redirect('/account');
         }
     );
 });
-
-
 // LOGOUT
 app.get('/logout', (req, res) => {
     req.session.destroy(() => res.redirect('/'));
