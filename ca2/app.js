@@ -800,7 +800,7 @@ app.get('/edit', checkAuthenticated, (req, res) => {
         }
 
         res.render('edit', {
-            profile: results[0],
+            user: results[0],
             errors: req.flash('error')
         });
     });
@@ -882,10 +882,10 @@ app.post(
         );
     }
 );
+
 // =========================
 // ACCOUNT PAGE
 // =========================
-
 app.get('/account', checkAuthenticated, (req, res) => {
     const userId = req.session.user.id;
 
@@ -898,21 +898,19 @@ app.get('/account', checkAuthenticated, (req, res) => {
     db.query(sql, [userId], (err, results) => {
         if (err) {
             console.error('Account page error:', err);
-            return res.send('Database error');
+            return res.status(500).send('Database error');
         }
 
         if (results.length === 0) {
-            return res.send('User not found');
+            return res.status(404).send('User not found');
         }
 
         res.render('account', {
-            user: results[0],
-            successMessage: req.flash('success'),
-            errorMessage: req.flash('error')
-        });
+    profile: results[0],
+    messages: req.flash('success')
+});
     });
 });
-
 // =========================
 // UPDATE ACCOUNT
 // =========================
